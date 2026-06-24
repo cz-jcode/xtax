@@ -1,5 +1,8 @@
 # xTax
 
+[![CI](https://github.com/cz-jcode/xtax/actions/workflows/ci.yml/badge.svg)](https://github.com/cz-jcode/xtax/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/cz-jcode/xtax/actions/workflows/codeql.yml/badge.svg)](https://github.com/cz-jcode/xtax/actions/workflows/codeql.yml)
+
 Rust infrastructure ecosystem — a Cargo workspace of independent, composable crates.
 
 ## What is xTax?
