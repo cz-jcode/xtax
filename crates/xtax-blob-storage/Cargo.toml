@@ -1,0 +1,49 @@
+[package]
+name = "xtax-blob-storage"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+description = "Application-level blob storage abstraction with filesystem/S3 backends, optional encryption, rekey, cleanup, and background maintenance."
+documentation = "https://docs.rs/xtax-blob-storage"
+readme = "README.md"
+keywords = ["blob", "storage", "s3", "filesystem", "encryption"]
+categories = ["filesystem", "web-programming"]
+exclude = ["/.cline/**"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["fs"]
+fs = ["tokio/fs"]
+s3 = ["dep:aws-sdk-s3", "dep:aws-smithy-types", "dep:aws-config"]
+
+[dependencies]
+async-trait = "0.1"
+tracing = { version = "0.1", features = ["attributes"] }
+tokio = { version = "1.52", features = ["io-util", "rt", "time", "sync", "macros"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+
+aws-sdk-s3 = { version = "1.137", optional = true }
+aws-smithy-types = { version = "1.5", optional = true }
+aws-config = { version = "1.8", optional = true }
+
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2.0"
+bytes = "1.12"
+
+[dev-dependencies]
+tokio = { version = "1.52", features = ["full", "io-util"] }
+tempfile = "3.27"
+tracing = "0.1"
+aws-config = { version = "1.8", features = ["behavior-version-latest"] }
+
+aws-sdk-s3 = "1.137"
+s3s = "0.14"
+s3s-fs = "0.14"
+s3s-aws = "0.14"

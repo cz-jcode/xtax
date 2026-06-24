@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Clippy (all features)
+        run: cargo clippy --workspace --all-features -- -D warnings
+
+      - name: Test (all features)
+        run: cargo test --workspace --all-features
+
+      - name: Test xtax facade (no default features)
+        run: cargo test -p xtax --no-default-features
+
+  # xtax-blob-storage feature matrix
+  blob-storage-features:
+    name: blob-storage feature combos
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - "--no-default-features"
+          - "--features fs"
+          - "--features s3"
+          - "--no-default-features --features s3"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: ${{ runner.os }}-cargo-blob-${{ matrix.features }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-blob-
+
+      - name: Build
+        run: cargo build -p xtax-blob-storage ${{ matrix.features }}
+
+      - name: Test
+        run: cargo test -p xtax-blob-storage ${{ matrix.features }}
+
+      - name: Clippy
+        run: cargo clippy -p xtax-blob-storage ${{ matrix.features }} -- -D warnings
