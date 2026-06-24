@@ -59,21 +59,26 @@ a GitHub Actions workflow that publishes the crate to [crates.io](https://crates
 
 | Tag prefix                    | Workflow                                  | What it publishes   |
 |-------------------------------|-------------------------------------------|---------------------|
+| `xtax-encryption-v*`          | `publish-xtax-encryption.yml`             | `xtax-encryption`   |
 | `xtax-blob-storage-v*`        | `publish-xtax-blob-storage.yml`           | `xtax-blob-storage` |
 | `xtax-v*`                     | `publish-xtax.yml`                        | `xtax`              |
 
 ### Step-by-step
 
-1. Bump the version in the crate's `Cargo.toml` (and the facade's dependency if needed).
+1. Bump the version in the crate's `Cargo.toml` (and downstream dependency versions if needed).
 2. Commit and push to `main`. Wait for CI to pass.
-3. Create and push the tag:
+3. Create and push the tags **in this order** (each subsequent crate depends on the previous):
 
 ```bash
-# Publish xtax-blob-storage (do this FIRST — xtax depends on it)
+# 1. Publish xtax-encryption (do this FIRST — xtax-blob-storage depends on it)
+git tag xtax-encryption-v0.1.1
+git push origin xtax-encryption-v0.1.1
+
+# 2. Publish xtax-blob-storage (xtax depends on it)
 git tag xtax-blob-storage-v0.1.1
 git push origin xtax-blob-storage-v0.1.1
 
-# Publish xtax facade
+# 3. Publish xtax facade
 git tag xtax-v0.1.1
 git push origin xtax-v0.1.1
 ```

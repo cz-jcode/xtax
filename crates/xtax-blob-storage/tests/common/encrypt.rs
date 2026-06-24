@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use xtax_blob_storage::{BlobStore, BlobStoreBuilder, EncryptionProvider};
+use xtax_blob_storage::{BlobStore, BlobStoreBuilder, EncryptionProvider, EncryptionResult};
 
 // ============================================================================
 // Dummy encryption: rotate (shift) each byte by a fixed offset.
@@ -45,7 +45,7 @@ impl EncryptionProvider for ShiftEncryption {
         &self,
         input: &mut (dyn tokio::io::AsyncRead + Send + Unpin),
         output: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
-    ) -> xtax_blob_storage::Result<Vec<u8>> {
+    ) -> EncryptionResult<Vec<u8>> {
         let mut buf = Vec::new();
         input.read_to_end(&mut buf).await?;
 
@@ -65,7 +65,7 @@ impl EncryptionProvider for ShiftEncryption {
         input: &mut (dyn tokio::io::AsyncRead + Send + Unpin),
         output: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
         header_bytes: &[u8],
-    ) -> xtax_blob_storage::Result<()> {
+    ) -> EncryptionResult<()> {
         // Unwrap DEK from header: dek = wrapped_dek XOR master_key_id
         let wrapped_dek = header_bytes.first().copied().unwrap_or(0);
         let master_key_id = header_bytes.get(1).copied().unwrap_or(0);
@@ -83,10 +83,7 @@ impl EncryptionProvider for ShiftEncryption {
         Ok(())
     }
 
-    async fn rekey_header(
-        &self,
-        header_bytes: &[u8],
-    ) -> xtax_blob_storage::Result<Option<Vec<u8>>> {
+    async fn rekey_header(&self, header_bytes: &[u8]) -> EncryptionResult<Option<Vec<u8>>> {
         // Plain ShiftEncryption always uses master_key_id=0, so rekey is a no-op
         let master_key_id = header_bytes.get(1).copied().unwrap_or(0);
         if master_key_id == 0 {
@@ -131,7 +128,7 @@ impl EncryptionProvider for RekeyableShiftEncryption {
         &self,
         input: &mut (dyn tokio::io::AsyncRead + Send + Unpin),
         output: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
-    ) -> xtax_blob_storage::Result<Vec<u8>> {
+    ) -> EncryptionResult<Vec<u8>> {
         let mut buf = Vec::new();
         input.read_to_end(&mut buf).await?;
 
@@ -151,7 +148,7 @@ impl EncryptionProvider for RekeyableShiftEncryption {
         input: &mut (dyn tokio::io::AsyncRead + Send + Unpin),
         output: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
         header_bytes: &[u8],
-    ) -> xtax_blob_storage::Result<()> {
+    ) -> EncryptionResult<()> {
         // Unwrap DEK: dek = wrapped_dek XOR master_key_id
         let wrapped_dek = header_bytes.first().copied().unwrap_or(0);
         let master_key_id = header_bytes.get(1).copied().unwrap_or(0);
@@ -169,10 +166,7 @@ impl EncryptionProvider for RekeyableShiftEncryption {
         Ok(())
     }
 
-    async fn rekey_header(
-        &self,
-        header_bytes: &[u8],
-    ) -> xtax_blob_storage::Result<Option<Vec<u8>>> {
+    async fn rekey_header(&self, header_bytes: &[u8]) -> EncryptionResult<Option<Vec<u8>>> {
         let old_master_key_id = header_bytes.get(1).copied().unwrap_or(0);
 
         // If already using the current master key, nothing to do
@@ -202,7 +196,7 @@ impl EncryptionProvider for FailingDecryption {
         &self,
         input: &mut (dyn tokio::io::AsyncRead + Send + Unpin),
         output: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
-    ) -> xtax_blob_storage::Result<Vec<u8>> {
+    ) -> EncryptionResult<Vec<u8>> {
         use tokio::io::AsyncReadExt;
         let mut buf = Vec::new();
         input.read_to_end(&mut buf).await?;
@@ -216,17 +210,14 @@ impl EncryptionProvider for FailingDecryption {
         _input: &mut (dyn tokio::io::AsyncRead + Send + Unpin),
         _output: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
         _header_bytes: &[u8],
-    ) -> xtax_blob_storage::Result<()> {
-        Err(xtax_blob_storage::BlobStorageError::Encryption {
+    ) -> EncryptionResult<()> {
+        Err(xtax_encryption::EncryptionError::Operation {
             message: "decryption intentionally failed".to_string(),
             source: None,
         })
     }
 
-    async fn rekey_header(
-        &self,
-        _header_bytes: &[u8],
-    ) -> xtax_blob_storage::Result<Option<Vec<u8>>> {
+    async fn rekey_header(&self, _header_bytes: &[u8]) -> EncryptionResult<Option<Vec<u8>>> {
         Ok(None)
     }
 }
@@ -245,7 +236,7 @@ impl EncryptionProvider for FailingAfterWriteEncryption {
         &self,
         input: &mut (dyn tokio::io::AsyncRead + Send + Unpin),
         output: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
-    ) -> xtax_blob_storage::Result<Vec<u8>> {
+    ) -> EncryptionResult<Vec<u8>> {
         use tokio::io::AsyncReadExt;
         let mut buf = Vec::new();
         input.read_to_end(&mut buf).await?;
@@ -253,7 +244,7 @@ impl EncryptionProvider for FailingAfterWriteEncryption {
         output.write_all(&buf).await?;
         output.flush().await?;
         // Then fail — the encryption task reports an error
-        Err(xtax_blob_storage::BlobStorageError::Encryption {
+        Err(xtax_encryption::EncryptionError::Operation {
             message: "encryption intentionally failed after writing data".to_string(),
             source: None,
         })
@@ -264,14 +255,11 @@ impl EncryptionProvider for FailingAfterWriteEncryption {
         _input: &mut (dyn tokio::io::AsyncRead + Send + Unpin),
         _output: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
         _header_bytes: &[u8],
-    ) -> xtax_blob_storage::Result<()> {
+    ) -> EncryptionResult<()> {
         unreachable!()
     }
 
-    async fn rekey_header(
-        &self,
-        _header_bytes: &[u8],
-    ) -> xtax_blob_storage::Result<Option<Vec<u8>>> {
+    async fn rekey_header(&self, _header_bytes: &[u8]) -> EncryptionResult<Option<Vec<u8>>> {
         Ok(None)
     }
 }

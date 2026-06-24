@@ -44,6 +44,35 @@ jobs:
       - name: Test xtax facade (no default features)
         run: cargo test -p xtax --no-default-features
 
+  # xtax-encryption checks
+  encryption-checks:
+    name: xtax-encryption
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: ${{ runner.os }}-cargo-enc-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-enc-
+
+      - name: Build
+        run: cargo build -p xtax-encryption
+
+      - name: Test
+        run: cargo test -p xtax-encryption
+
+      - name: Clippy
+        run: cargo clippy -p xtax-encryption -- -D warnings
+
   # xtax-blob-storage feature matrix
   blob-storage-features:
     name: blob-storage feature combos
