@@ -25,14 +25,17 @@ default = []
 blob-storage = ["dep:xtax-blob-storage", "xtax-blob-storage/fs"]
 blob-storage-s3 = ["dep:xtax-blob-storage", "xtax-blob-storage/s3"]
 blob-storage-full = ["blob-storage", "blob-storage-s3"]
+encryption = ["dep:xtax-encryption"]
 full = ["blob-storage-full"]
 
 [dependencies]
 xtax-blob-storage = { version = "0.1.0", path = "crates/xtax-blob-storage", optional = true, default-features = false }
+xtax-encryption = { version = "0.1.0", path = "crates/xtax-encryption", optional = true }
 
 [workspace]
 members = [
     "crates/xtax-blob-storage",
+    "crates/xtax-encryption",
 ]
 resolver = "3"
 

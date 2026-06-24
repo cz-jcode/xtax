@@ -122,7 +122,9 @@ pub use builder::{
     MaintenanceTrigger, Manual, OnStart, Periodic,
 };
 pub use cleanup::{BlobCleanup, CleanupPredicate};
-pub use encrypt::{EncryptionProvider, store::EncryptedBlobStore};
+pub use encrypt::{
+    EncryptionError, EncryptionProvider, EncryptionResult, store::EncryptedBlobStore,
+};
 pub use error::{BatchError, BlobStorageError, KeyError, PerKeyError, Result};
 pub use list_filter::{ListFilter, NotFilter, PrefixFilter, SuffixFilter};
 pub use types::{BlobInput, BlobMeta, CleanupResult, KEY_SEPARATOR, PutResult, RekeyResult};

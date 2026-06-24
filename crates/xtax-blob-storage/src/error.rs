@@ -157,3 +157,12 @@ impl From<&str> for BlobStorageError {
         }
     }
 }
+
+impl From<xtax_encryption::EncryptionError> for BlobStorageError {
+    fn from(e: xtax_encryption::EncryptionError) -> Self {
+        Self::Encryption {
+            message: e.to_string(),
+            source: Some(Box::new(e)),
+        }
+    }
+}
