@@ -16,9 +16,9 @@ dependency with composable, opt-in functionality.
 | Crate | Description | Status |
 |-------|-------------|---|
 | [`xtax-blob-storage`](crates/xtax-blob-storage/) | Application-level blob storage abstraction with filesystem/S3 backends, optional encryption, rekey, cleanup, and background maintenance. | 0.1.0 publish candidate |
+| [`xtax-encryption`](crates/xtax-encryption/) | Trait-only encryption provider interface. | 0.1.0 publish candidate |
 
 Future planned crates (not yet created):
-- `xtax-encryption` — standalone encryption utilities
 - `xtax-state-store` — generic state persistence layer
 - `xtax-state-query` — query layer on top of state store
 
@@ -66,10 +66,11 @@ Both paths are valid and supported.
 ## Feature flags (facade)
 | Feature             | Description |
 |---------------------|-------------|
-| `blob-storage`      | Re-exports `xtax-blob-storage` with filesystem backend |
-| `blob-storage-s3`   | Re-exports `xtax-blob-storage` with S3 backend |
-| `blob-storage-full` | Enables all `xtax-blob-storage` backends exposed by the facade |
-| `full`              | Enables all currently exposed facade features |
+| `encryption`        | Re-exports `xtax-encryption` |
+| `blob-storage`      | Enables filesystem backend via `xtax-blob-storage` |
+| `blob-storage-s3`   | Enables S3 backend via `xtax-blob-storage` |
+| `blob-storage-full` | Enables all blob-storage backends exposed by the facade |
+| `full`              | Enables all currently exposed facade features, including `encryption` |
 
 Default features: **none**. You opt in to exactly what you need.
 

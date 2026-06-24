@@ -38,6 +38,7 @@
 //! |---------------------|-------------------------|---------------------------------------------------|
 //! | `blob-storage`      | `xtax-blob-storage`     | Blob storage with filesystem backend              |
 //! | `blob-storage-s3`   | `xtax-blob-storage`     | Enables the S3 backend                            |
+//! | `blob-storage-full` | `xtax-blob-storage`     | Enables all blob-storage backends exposed by the facade |
 //! | `encryption`        | `xtax-encryption`       | Trait-only encryption provider interface          |
 //! | `full`              | all facade features     | Enables all currently exposed features            |
 //!
@@ -55,7 +56,12 @@ pub use xtax_blob_storage as blob_storage;
 pub use xtax_encryption as encryption;
 
 /// Convenience prelude — re-exports the most commonly used items from subcrates.
-#[cfg(feature = "blob-storage")]
+#[cfg(any(feature = "blob-storage", feature = "encryption"))]
 pub mod prelude {
+    #[cfg(feature = "blob-storage")]
     pub use xtax_blob_storage::*;
+
+    #[cfg(feature = "encryption")]
+    #[cfg_attr(feature = "blob-storage", allow(unused_imports))]
+    pub use xtax_encryption::*;
 }
