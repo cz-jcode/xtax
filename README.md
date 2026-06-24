@@ -1,8 +1,8 @@
-# xtax
+# xTax
 
 Rust infrastructure ecosystem — a Cargo workspace of independent, composable crates.
 
-## What is xtax?
+## What is xTax?
 
 `xtax` is **not** a monolithic framework. It's a **workspace** / semi-monorepo that
 hosts a growing collection of standalone Rust crates for building backend infrastructure.

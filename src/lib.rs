@@ -34,11 +34,11 @@
 //!
 //! ## Feature flags
 //!
-//! | Feature             | Crate re-exported       | Description                                |
-//! |---------------------|-------------------------|--------------------------------------------|
-//! | `blob-storage`      | `xtax-blob-storage`     | Blob storage with default backend features |
-//! | `blob-storage-s3`   | `xtax-blob-storage`     | Enables the S3 backend                     |
-//! | `full`              | all facade features     | Enables all currently exposed features     |
+//! | Feature             | Crate re-exported       | Description                                       |
+//! |---------------------|-------------------------|---------------------------------------------------|
+//! | `blob-storage`      | `xtax-blob-storage`     | Blob storage with filesystem backend              |
+//! | `blob-storage-s3`   | `xtax-blob-storage`     | Enables the S3 backend                            |
+//! | `full`              | all facade features     | Enables all currently exposed features            |
 //!
 //! ## Architecture
 //!
