@@ -69,6 +69,13 @@
 //! | `encryption`        | `xtax-encryption`       | Trait-only encryption provider interface         |
 //! | `full`              | all facade features     | Enables all currently exposed facade features    |
 //!
+//! ## Subcrate documentation
+//!
+//! | Crate | Documentation |
+//! |-------|---------------|
+//! | `xtax-blob-storage` | [docs.rs](https://docs.rs/xtax-blob-storage) |
+//! | `xtax-encryption` | [docs.rs](https://docs.rs/xtax-encryption) |
+//!
 //! ## Architecture
 //!
 //! - The `xtax` facade crate contains **no logic**.

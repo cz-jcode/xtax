@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 //! # xtax-blob-storage
 //!
 //! > **Experimental** blob storage abstraction for Rust with filesystem and S3

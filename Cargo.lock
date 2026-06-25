@@ -2899,7 +2899,7 @@ checksum = "66fee0b777b0f5ac1c69bb06d361268faafa61cd4682ae064a171c16c433e9e4"
 
 [[package]]
 name = "xtax"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "xtax-blob-storage",
  "xtax-encryption",
@@ -2907,7 +2907,7 @@ dependencies = [
 
 [[package]]
 name = "xtax-blob-storage"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "aws-config",
