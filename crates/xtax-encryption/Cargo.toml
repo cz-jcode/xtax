@@ -12,7 +12,6 @@ documentation = "https://docs.rs/xtax-encryption"
 readme = "README.md"
 keywords = ["encryption", "trait", "blob", "storage"]
 categories = ["cryptography"]
-exclude = ["/.cline/**"]
 
 [package.metadata.docs.rs]
 all-features = true
