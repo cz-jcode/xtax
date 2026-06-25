@@ -108,3 +108,34 @@ jobs:
 
       - name: Clippy
         run: cargo clippy -p xtax-blob-storage ${{ matrix.features }} -- -D warnings
+
+  # Documentation build
+  docs:
+    name: Documentation build
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: "-D warnings"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
+        with:
+          path: |
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-docs-
+
+      - name: Build docs xtax-encryption
+        run: cargo doc -p xtax-encryption --all-features --no-deps
+
+      - name: Build docs xtax-blob-storage
+        run: cargo doc -p xtax-blob-storage --all-features --no-deps
+
+      - name: Build docs xtax
+        run: cargo doc -p xtax --all-features --no-deps
