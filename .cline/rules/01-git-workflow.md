@@ -51,5 +51,5 @@ gh pr create \
 
 ## Reference
 
-- Conventional commits: https://www.conventionalcommits.org/
+- Conventional commits: <https://www.conventionalcommits.org/>
 - Rust commit style often matches conventional commits with lowercase, no trailing punctuation.
