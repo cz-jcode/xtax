@@ -1,5 +1,8 @@
 # xtax-encryption
 
+[![crates.io](https://img.shields.io/crates/v/xtax-encryption.svg)](https://crates.io/crates/xtax-encryption)
+[![docs.rs](https://docs.rs/xtax-encryption/badge.svg)](https://docs.rs/xtax-encryption)
+
 > **Trait-only** encryption provider interface — no backend, no storage,
 > no I/O decisions.
 

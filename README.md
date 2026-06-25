@@ -3,6 +3,8 @@
 [![CI](https://github.com/cz-jcode/xtax/actions/workflows/ci.yml/badge.svg)](https://github.com/cz-jcode/xtax/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/cz-jcode/xtax/actions/workflows/codeql.yml/badge.svg)](https://github.com/cz-jcode/xtax/actions/workflows/codeql.yml)
 [![Dependabot](https://img.shields.io/badge/dependabot-active-blue?logo=dependabot)](https://github.com/cz-jcode/xtax/network/updates)
+[![crates.io](https://img.shields.io/crates/v/xtax.svg)](https://crates.io/crates/xtax)
+[![docs.rs](https://docs.rs/xtax/badge.svg)](https://docs.rs/xtax)
 
 Rust infrastructure ecosystem — a Cargo workspace of independent, composable crates.
 
@@ -19,8 +21,8 @@ dependency with composable, opt-in functionality.
 
 | Crate | Description | Status |
 |-------|-------------|---|
-| [`xtax-blob-storage`](crates/xtax-blob-storage/) | Application-level blob storage abstraction with filesystem/S3 backends, optional encryption, rekey, cleanup, and background maintenance. | 0.1.0 publish candidate |
-| [`xtax-encryption`](crates/xtax-encryption/) | Trait-only encryption provider interface. | 0.1.0 publish candidate |
+| [`xtax-blob-storage`](crates/xtax-blob-storage/) | Application-level blob storage abstraction with filesystem/S3 backends, optional encryption, rekey, cleanup, and background maintenance. | [![crates.io](https://img.shields.io/crates/v/xtax-blob-storage.svg)](https://crates.io/crates/xtax-blob-storage) |
+| [`xtax-encryption`](crates/xtax-encryption/) | Trait-only encryption provider interface. | [![crates.io](https://img.shields.io/crates/v/xtax-encryption.svg)](https://crates.io/crates/xtax-encryption) |
 
 Future planned crates (not yet created):
 - `xtax-state-store` — generic state persistence layer
