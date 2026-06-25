@@ -11,7 +11,7 @@
 //!
 //! ## Status
 //!
-//! **v0.1.0 — Experimental / learning project.** Not production-ready.
+//! **Experimental / learning project.** Not production-ready.
 //!
 //! ## Architecture
 //!
