@@ -80,7 +80,7 @@ tokio = { version = "1.52", features = ["rt", "io-util"] }
 
 No database. No gRPC. No framework lock-in. Just blobs.
 
-## Features
+## Features flags
 
 | Feature | Dependencies | When to use           |
 |---------|-------------|-----------------------|
