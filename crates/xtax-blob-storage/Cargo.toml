@@ -12,7 +12,6 @@ documentation = "https://docs.rs/xtax-blob-storage"
 readme = "README.md"
 keywords = ["blob", "storage", "s3", "filesystem", "encryption"]
 categories = ["filesystem", "web-programming"]
-exclude = ["/.cline/**"]
 
 [package.metadata.docs.rs]
 all-features = true
