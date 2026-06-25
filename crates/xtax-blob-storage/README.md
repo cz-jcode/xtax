@@ -1,5 +1,8 @@
 # xtax-blob-storage
 
+[![crates.io](https://img.shields.io/crates/v/xtax-blob-storage.svg)](https://crates.io/crates/xtax-blob-storage)
+[![docs.rs](https://docs.rs/xtax-blob-storage/badge.svg)](https://docs.rs/xtax-blob-storage)
+
 > **Experimental** blob storage abstraction for Rust with filesystem and S3
 > backends, streaming uploads, optional encryption, and composable layers.
 
