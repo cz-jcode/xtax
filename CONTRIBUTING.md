@@ -72,12 +72,10 @@ in order: `xtax-encryption` → `xtax-blob-storage` → `xtax`.
 2. Update any intra-workspace dependency versions (e.g. `xtax-blob-storage` → `xtax-encryption`).
 3. Commit and push to `main`. Wait for CI to pass.
 4. Create and push a single tag:
-
-```bash
-git tag v0.1.1
-git push origin v0.1.1
-```
-
+   ```bash
+   git tag v0.1.1
+   git push origin v0.1.1
+   ```
 5. `release.yml` will:
    - Extract the version from the tag
    - Validate that all three crates have the same version
