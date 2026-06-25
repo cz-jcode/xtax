@@ -298,7 +298,7 @@ impl BackgroundStrategy for OnStart {
 
 /// Strategy that runs the task immediately, then repeats periodically.
 ///
-/// The inner [`Duration`] must be **non-zero**. Passing `Duration::ZERO` causes
+/// The inner [`std::time::Duration`] must be **non-zero**. Passing `Duration::ZERO` causes
 /// `build()` to return an `Err(InvalidInput(...))`.
 ///
 /// # Example
