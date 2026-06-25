@@ -1,6 +1,6 @@
 [package]
 name = "xtax-blob-storage"
-version = "0.1.1"
+version = "0.1.2"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -23,7 +23,7 @@ fs = ["tokio/fs"]
 s3 = ["dep:aws-sdk-s3", "dep:aws-smithy-types", "dep:aws-config"]
 
 [dependencies]
-xtax-encryption = { version = "0.1.1", path = "../xtax-encryption" }
+xtax-encryption = { version = "0.1.2", path = "../xtax-encryption" }
 async-trait = "0.1"
 tracing = { version = "0.1", features = ["attributes"] }
 tokio = { version = "1.52", features = ["io-util", "rt", "time", "sync", "macros"] }
