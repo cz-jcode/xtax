@@ -31,7 +31,7 @@ full = ["blob-storage-full", "encryption"]
 
 [dependencies]
 xtax-blob-storage = { version = "0.1.1", path = "crates/xtax-blob-storage", optional = true, default-features = false }
-xtax-encryption = { version = "0.1.0", path = "crates/xtax-encryption", optional = true }
+xtax-encryption = { version = "0.1.1", path = "crates/xtax-encryption", optional = true }
 
 [workspace]
 members = [
