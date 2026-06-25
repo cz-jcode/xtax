@@ -1,0 +1,135 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  publish:
+    name: Publish all crates
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-release-
+
+      # ── xtax-encryption ──
+      - name: Publish xtax-encryption (if changed)
+        id: publish-enc
+        run: |
+          VERSION="$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "xtax-encryption") | .version')"          
+          RESPONSE="$(curl -sf "https://crates.io/api/v1/crates/xtax-encryption" || echo "")"
+          if [ -z "$RESPONSE" ]; then
+            PUBLISHED="0"
+          else
+            PUBLISHED="$(echo "$RESPONSE" | jq -r '.versions[].num' | grep -c "^${VERSION}$" || true)"
+          fi
+          
+          if [ "$PUBLISHED" = "0" ]; then
+            echo "Publishing xtax-encryption $VERSION..."
+            cargo publish -p xtax-encryption --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "xtax-encryption $VERSION already published — skipping"
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for crates.io index (xtax-encryption)
+        if: steps.publish-enc.outputs.published == 'true'
+        run: sleep 30
+
+      # ── xtax-blob-storage ──
+      - name: Publish xtax-blob-storage (if changed)
+        id: publish-blob
+        run: |
+          VERSION="$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "xtax-blob-storage") | .version')"
+          RESPONSE="$(curl -sf "https://crates.io/api/v1/crates/xtax-blob-storage" || echo "")"
+          if [ -z "$RESPONSE" ]; then
+            PUBLISHED="0"
+          else
+            PUBLISHED="$(echo "$RESPONSE" | jq -r '.versions[].num' | grep -c "^${VERSION}$" || true)"
+          fi
+          
+          if [ "$PUBLISHED" = "0" ]; then
+            echo "Publishing xtax-blob-storage $VERSION..."
+            cargo publish -p xtax-blob-storage --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "xtax-blob-storage $VERSION already published — skipping"
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for xtax-blob-storage on crates.io
+        if: steps.publish-blob.outputs.published == 'true'
+        run: |
+          VERSION="$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "xtax-blob-storage") | .version')"
+          echo "Waiting for xtax-blob-storage $VERSION on crates.io index..."
+          for i in $(seq 1 60); do
+            echo "Attempt $i/60..."            
+            RESPONSE="$(curl -sf "https://crates.io/api/v1/crates/xtax-blob-storage" || echo "")"
+            if [ -n "$RESPONSE" ]; then
+              MATCH="$(echo "$RESPONSE" | jq -r '.versions[].num' | grep -c "^${VERSION}$" || true)"
+              if [ "$MATCH" -gt 0 ]; then
+                echo "xtax-blob-storage $VERSION is now visible in API index"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for xtax-blob-storage $VERSION"
+          exit 1
+
+      # ── xtax (facade) ──
+      - name: Publish xtax (if changed)
+        id: publish-xtax
+        run: |
+          VERSION="$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "xtax") | .version')"
+          RESPONSE="$(curl -sf "https://crates.io/api/v1/crates/xtax" || echo "")"
+          if [ -z "$RESPONSE" ]; then
+            PUBLISHED="0"
+          else
+            PUBLISHED="$(echo "$RESPONSE" | jq -r '.versions[].num' | grep -c "^${VERSION}$" || true)"
+          fi
+          
+          if [ "$PUBLISHED" = "0" ]; then
+            echo "Publishing xtax $VERSION..."
+            cargo publish -p xtax --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "xtax $VERSION already published — skipping"
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── GitHub Release ──
+      - name: Create GitHub Release (only if something was published)
+        if: |
+          steps.publish-enc.outputs.published == 'true' ||
+          steps.publish-blob.outputs.published == 'true' ||
+          steps.publish-xtax.outputs.published == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "Some crates were published — creating GitHub Release $TAG..."
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "Release $TAG" \
+            --generate-notes
