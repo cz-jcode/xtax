@@ -1,7 +1,7 @@
 # Rust API Guidelines for Cline
 
 Purpose: keep Rust public APIs idiomatic, predictable, interoperable, and stable.
-Source basis: https://rust-lang.github.io/api-guidelines/
+Source basis: <https://rust-lang.github.io/api-guidelines/>
 
 Use this file as a compact rule set for code generation and review. Prefer these rules for public crate APIs, library boundaries, exported traits, exported structs, public modules, and public error types. For private implementation code, follow the same style unless it hurts clarity.
 
