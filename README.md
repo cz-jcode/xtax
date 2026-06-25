@@ -5,6 +5,7 @@
 [![Dependabot](https://img.shields.io/badge/dependabot-active-blue?logo=dependabot)](https://github.com/cz-jcode/xtax/network/updates)
 [![crates.io](https://img.shields.io/crates/v/xtax.svg)](https://crates.io/crates/xtax)
 [![docs.rs](https://docs.rs/xtax/badge.svg)](https://docs.rs/xtax)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/5f6106e413274dfcac3179c96ed643bf)](https://app.codacy.com/gh/cz-jcode/xtax/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
 Rust infrastructure ecosystem — a Cargo workspace of independent, composable crates.
 
@@ -79,6 +80,14 @@ Both paths are valid and supported.
 | `full`              | Enables all currently exposed facade features, including `encryption` |
 
 Default features: **none**. You opt in to exactly what you need.
+
+## Documentation
+
+| Crate | docs.rs | Guides |
+|-------|---------|--------|
+| `xtax` (facade) | [docs.rs](https://docs.rs/xtax) | — |
+| `xtax-blob-storage` | [docs.rs](https://docs.rs/xtax-blob-storage) | [Guide](crates/xtax-blob-storage/docs/guide.md) · [Architecture](crates/xtax-blob-storage/docs/architecture.md) · [Backends](crates/xtax-blob-storage/docs/backends.md) · [Encryption](crates/xtax-blob-storage/docs/encryption.md) · [All docs](crates/xtax-blob-storage/docs/) |
+| `xtax-encryption` | [docs.rs](https://docs.rs/xtax-encryption) | [README](crates/xtax-encryption/README.md) |
 
 ## Contributing
 

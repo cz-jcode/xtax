@@ -1,7 +1,11 @@
 # xtax-blob-storage
 
+[![CI](https://github.com/cz-jcode/xtax/actions/workflows/ci.yml/badge.svg)](https://github.com/cz-jcode/xtax/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/cz-jcode/xtax/actions/workflows/codeql.yml/badge.svg)](https://github.com/cz-jcode/xtax/actions/workflows/codeql.yml)
+[![Dependabot](https://img.shields.io/badge/dependabot-active-blue?logo=dependabot)](https://github.com/cz-jcode/xtax/network/updates)
 [![crates.io](https://img.shields.io/crates/v/xtax-blob-storage.svg)](https://crates.io/crates/xtax-blob-storage)
 [![docs.rs](https://docs.rs/xtax-blob-storage/badge.svg)](https://docs.rs/xtax-blob-storage)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/5f6106e413274dfcac3179c96ed643bf)](https://app.codacy.com/gh/cz-jcode/xtax/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
 > **Experimental** blob storage abstraction for Rust with filesystem and S3
 > backends, streaming uploads, optional encryption, and composable layers.
