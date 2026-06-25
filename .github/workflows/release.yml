@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 0.1.1)'
+        required: true
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -36,12 +42,18 @@ jobs:
         run: |
           set -euo pipefail
           
-          TAG="${{ github.ref_name }}"
-          VERSION="${TAG#v}"
-          
-          if [ -z "$VERSION" ] || [ "$VERSION" = "$TAG" ]; then
-            echo "Invalid release tag: $TAG"
-            exit 1
+          if [ -n "${{ inputs.version }}" ]; then
+            # workflow_dispatch — use provided version directly
+            VERSION="${{ inputs.version }}"
+          else
+            # tag trigger — strip 'v' prefix
+            TAG="${{ github.ref_name }}"
+            VERSION="${TAG#v}"
+            
+            if [ -z "$VERSION" ] || [ "$VERSION" = "$TAG" ]; then
+              echo "Invalid release tag: $TAG"
+              exit 1
+            fi
           fi
           
           echo "Release version: $VERSION"
@@ -94,8 +106,10 @@ jobs:
               return 1
             fi
           
+            # Strip optional 'v' prefix for crates.io API (num is always bare like "0.1.1")
+            local bare_version="${version#v}"
             echo "$response" |
-              jq -e --arg version "$version" '.versions[].num == $version' >/dev/null
+              jq -e --arg version "$bare_version" 'any(.versions[].num; . == $version)' >/dev/null
           }
           
           wait_for_crate() {
