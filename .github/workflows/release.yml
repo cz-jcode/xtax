@@ -95,57 +95,34 @@ jobs:
           VERSION="${{ steps.release.outputs.version }}"
           PUBLISHED_ANY=false
           
-          crate_version_exists() {
+          publish_crate() {
             local crate="$1"
-            local version="$2"
+            local output
           
-            local response
-            response="$(curl -sf "https://crates.io/api/v1/crates/${crate}" || true)"
+            echo "Publishing $crate $VERSION..."
           
-            if [ -z "$response" ]; then
-              return 1
-            fi
+            # Let cargo publish decide — it uses the same local index as validation.
+            # If the version already exists in the index, cargo exits non-zero and
+            # prints "already exists" to stderr.
+            set +e
+            output="$(cargo publish -p "$crate" --token "$CARGO_REGISTRY_TOKEN" 2>&1)"
+            local exit_code=$?
+            set -e
           
-            # Strip optional 'v' prefix for crates.io API (num is always bare like "0.1.1")
-            local bare_version="${version#v}"
-            echo "$response" |
-              jq -e --arg version "$bare_version" 'any(.versions[].num; . == $version)' >/dev/null
-          }
-          
-          wait_for_crate() {
-            local crate="$1"
-            local version="$2"
-          
-            echo "Waiting for $crate $version to become visible on crates.io..."
-          
-            for i in $(seq 1 60); do
-              echo "Attempt $i/60..."
-          
-              if crate_version_exists "$crate" "$version"; then
-                echo "$crate $version is visible on crates.io"
+            if [ $exit_code -ne 0 ]; then
+              if echo "$output" | grep -q "already exists"; then
+                echo "$crate $VERSION already published — skipping"
                 return 0
               fi
           
-              sleep 10
-            done
-          
-            echo "Timed out waiting for $crate $version"
-            exit 1
-          }
-          
-          publish_crate() {
-            local crate="$1"
-          
-            if crate_version_exists "$crate" "$VERSION"; then
-              echo "$crate $VERSION already published — skipping"
-              return 0
+              echo "$output"
+              echo "cargo publish failed for $crate"
+              exit $exit_code
             fi
           
-            echo "Publishing $crate $VERSION..."
-            cargo publish -p "$crate" --token "$CARGO_REGISTRY_TOKEN"
-          
+            echo "$output"
+            echo "$crate $VERSION published successfully"
             PUBLISHED_ANY=true
-            wait_for_crate "$crate" "$VERSION"
           }
           
           publish_crate xtax-encryption
