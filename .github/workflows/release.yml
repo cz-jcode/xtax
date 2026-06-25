@@ -31,104 +31,123 @@ jobs:
           key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-release-
 
-      # ── xtax-encryption ──
-      - name: Publish xtax-encryption (if changed)
-        id: publish-enc
+      - name: Resolve release version
+        id: release
         run: |
-          VERSION="$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "xtax-encryption") | .version')"          
-          RESPONSE="$(curl -sf "https://crates.io/api/v1/crates/xtax-encryption" || echo "")"
-          if [ -z "$RESPONSE" ]; then
-            PUBLISHED="0"
-          else
-            PUBLISHED="$(echo "$RESPONSE" | jq -r '.versions[].num' | grep -c "^${VERSION}$" || true)"
+          set -euo pipefail
+          
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          
+          if [ -z "$VERSION" ] || [ "$VERSION" = "$TAG" ]; then
+            echo "Invalid release tag: $TAG"
+            exit 1
           fi
           
-          if [ "$PUBLISHED" = "0" ]; then
-            echo "Publishing xtax-encryption $VERSION..."
-            cargo publish -p xtax-encryption --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-            echo "published=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "xtax-encryption $VERSION already published — skipping"
-            echo "published=false" >> "$GITHUB_OUTPUT"
-          fi
+          echo "Release version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Wait for crates.io index (xtax-encryption)
-        if: steps.publish-enc.outputs.published == 'true'
-        run: sleep 30
-
-      # ── xtax-blob-storage ──
-      - name: Publish xtax-blob-storage (if changed)
-        id: publish-blob
+      - name: Validate lockstep crate versions
         run: |
-          VERSION="$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "xtax-blob-storage") | .version')"
-          RESPONSE="$(curl -sf "https://crates.io/api/v1/crates/xtax-blob-storage" || echo "")"
-          if [ -z "$RESPONSE" ]; then
-            PUBLISHED="0"
-          else
-            PUBLISHED="$(echo "$RESPONSE" | jq -r '.versions[].num' | grep -c "^${VERSION}$" || true)"
-          fi
+          set -euo pipefail
           
-          if [ "$PUBLISHED" = "0" ]; then
-            echo "Publishing xtax-blob-storage $VERSION..."
-            cargo publish -p xtax-blob-storage --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-            echo "published=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "xtax-blob-storage $VERSION already published — skipping"
-            echo "published=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Wait for xtax-blob-storage on crates.io
-        if: steps.publish-blob.outputs.published == 'true'
-        run: |
-          VERSION="$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "xtax-blob-storage") | .version')"
-          echo "Waiting for xtax-blob-storage $VERSION on crates.io index..."
-          for i in $(seq 1 60); do
-            echo "Attempt $i/60..."            
-            RESPONSE="$(curl -sf "https://crates.io/api/v1/crates/xtax-blob-storage" || echo "")"
-            if [ -n "$RESPONSE" ]; then
-              MATCH="$(echo "$RESPONSE" | jq -r '.versions[].num' | grep -c "^${VERSION}$" || true)"
-              if [ "$MATCH" -gt 0 ]; then
-                echo "xtax-blob-storage $VERSION is now visible in API index"
-                exit 0
-              fi
+          RELEASE_VERSION="${{ steps.release.outputs.version }}"
+          CRATES="xtax-encryption xtax-blob-storage xtax"
+          
+          for CRATE in $CRATES; do
+            CRATE_VERSION="$(
+              cargo metadata --format-version 1 --no-deps |
+              jq -r --arg name "$CRATE" '.packages[] | select(.name == $name) | .version'
+            )"
+          
+            if [ -z "$CRATE_VERSION" ]; then
+              echo "Crate $CRATE not found in workspace"
+              exit 1
             fi
-            sleep 10
-          done
-          echo "Timed out waiting for xtax-blob-storage $VERSION"
-          exit 1
-
-      # ── xtax (facade) ──
-      - name: Publish xtax (if changed)
-        id: publish-xtax
-        run: |
-          VERSION="$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "xtax") | .version')"
-          RESPONSE="$(curl -sf "https://crates.io/api/v1/crates/xtax" || echo "")"
-          if [ -z "$RESPONSE" ]; then
-            PUBLISHED="0"
-          else
-            PUBLISHED="$(echo "$RESPONSE" | jq -r '.versions[].num' | grep -c "^${VERSION}$" || true)"
-          fi
           
-          if [ "$PUBLISHED" = "0" ]; then
-            echo "Publishing xtax $VERSION..."
-            cargo publish -p xtax --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-            echo "published=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "xtax $VERSION already published — skipping"
-            echo "published=false" >> "$GITHUB_OUTPUT"
-          fi
+            if [ "$CRATE_VERSION" != "$RELEASE_VERSION" ]; then
+              echo "::error::Version mismatch for $CRATE: Cargo.toml has $CRATE_VERSION, tag requires $RELEASE_VERSION"
+              exit 1
+            fi
+          
+            echo "$CRATE version OK: $CRATE_VERSION"
+          done
 
-      # ── GitHub Release ──
-      - name: Create GitHub Release (only if something was published)
-        if: |
-          steps.publish-enc.outputs.published == 'true' ||
-          steps.publish-blob.outputs.published == 'true' ||
-          steps.publish-xtax.outputs.published == 'true'
+      - name: Publish crates
+        id: publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          
+          VERSION="${{ steps.release.outputs.version }}"
+          PUBLISHED_ANY=false
+          
+          crate_version_exists() {
+            local crate="$1"
+            local version="$2"
+          
+            local response
+            response="$(curl -sf "https://crates.io/api/v1/crates/${crate}" || true)"
+          
+            if [ -z "$response" ]; then
+              return 1
+            fi
+          
+            echo "$response" |
+              jq -e --arg version "$version" '.versions[].num == $version' >/dev/null
+          }
+          
+          wait_for_crate() {
+            local crate="$1"
+            local version="$2"
+          
+            echo "Waiting for $crate $version to become visible on crates.io..."
+          
+            for i in $(seq 1 60); do
+              echo "Attempt $i/60..."
+          
+              if crate_version_exists "$crate" "$version"; then
+                echo "$crate $version is visible on crates.io"
+                return 0
+              fi
+          
+              sleep 10
+            done
+          
+            echo "Timed out waiting for $crate $version"
+            exit 1
+          }
+          
+          publish_crate() {
+            local crate="$1"
+          
+            if crate_version_exists "$crate" "$VERSION"; then
+              echo "$crate $VERSION already published — skipping"
+              return 0
+            fi
+          
+            echo "Publishing $crate $VERSION..."
+            cargo publish -p "$crate" --token "$CARGO_REGISTRY_TOKEN"
+          
+            PUBLISHED_ANY=true
+            wait_for_crate "$crate" "$VERSION"
+          }
+          
+          publish_crate xtax-encryption
+          publish_crate xtax-blob-storage
+          publish_crate xtax
+          
+          echo "published_any=$PUBLISHED_ANY" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        if: steps.publish.outputs.published_any == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ github.ref_name }}"
-          echo "Some crates were published — creating GitHub Release $TAG..."
+          
+          echo "Creating GitHub Release $TAG..."
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --title "Release $TAG" \

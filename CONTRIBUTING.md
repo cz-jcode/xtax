@@ -54,37 +54,33 @@ Run them locally before pushing to avoid round-trips.
 
 ## Releasing / Publishing
 
-Releases are driven by Git tags. Pushing a tag with the right prefix triggers
-a GitHub Actions workflow that publishes the crate to [crates.io](https://crates.io).
+Releases use **lockstep versioning**: all crates share the same version number.
+Pushing a single `v*` tag triggers `release.yml`, which validates that all three
+crates have matching versions, then publishes them to [crates.io](https://crates.io)
+in order: `xtax-encryption` → `xtax-blob-storage` → `xtax`.
 
-| Tag prefix                    | Workflow                                  | What it publishes   |
-|-------------------------------|-------------------------------------------|---------------------|
-| `xtax-encryption-v*`          | `publish-xtax-encryption.yml`             | `xtax-encryption`   |
-| `xtax-blob-storage-v*`        | `publish-xtax-blob-storage.yml`           | `xtax-blob-storage` |
-| `xtax-v*`                     | `publish-xtax.yml`                        | `xtax`              |
+| Tag        | Workflow         | What it publishes                           |
+|------------|------------------|---------------------------------------------|
+| `v*`       | `release.yml`    | `xtax-encryption`, `xtax-blob-storage`, `xtax` |
 
 ### Step-by-step
 
-1. Bump the version in the crate's `Cargo.toml` (and downstream dependency versions if needed).
-2. Commit and push to `main`. Wait for CI to pass.
-3. Create and push the tags **in this order** (each subsequent crate depends on the previous):
-
-```bash
-# 1. Publish xtax-encryption (do this FIRST — xtax-blob-storage depends on it)
-git tag xtax-encryption-v0.1.1
-git push origin xtax-encryption-v0.1.1
-
-# 2. Publish xtax-blob-storage (xtax depends on it)
-git tag xtax-blob-storage-v0.1.1
-git push origin xtax-blob-storage-v0.1.1
-
-# 3. Publish xtax facade
-git tag xtax-v0.1.1
-git push origin xtax-v0.1.1
-```
-
-4. GitHub Actions will run `cargo publish --dry-run` first, then publish.
+1. Bump the version in **all three** `Cargo.toml` files to the same version:
+   - `Cargo.toml` (root — facade + dependency versions)
+   - `crates/xtax-encryption/Cargo.toml`
+   - `crates/xtax-blob-storage/Cargo.toml`
+2. Update any intra-workspace dependency versions (e.g. `xtax-blob-storage` → `xtax-encryption`).
+3. Commit and push to `main`. Wait for CI to pass.
+4. Create and push a single tag:
+   ```bash
+   git tag v0.1.1
+   git push origin v0.1.1
+   ```
+5. `release.yml` will:
+   - Extract the version from the tag
+   - Validate that all three crates have the same version
+   - Publish each crate (skipping any that already exist on crates.io)
+   - Create a GitHub Release with auto-generated notes
 
 > **Note:** Publishing requires a `release` environment with a `CARGO_REGISTRY_TOKEN`
-> secret configured in the GitHub repository settings. Both publish workflows use
-> `environment: release`, so the token is only exposed to those jobs.
+> secret configured in the GitHub repository settings.
