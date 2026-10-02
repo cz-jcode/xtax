@@ -29,7 +29,12 @@ tracing = { version = "0.1", features = ["attributes"] }
 tokio = { version = "1.52", features = ["io-util", "rt", "time", "sync", "macros"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 
-aws-sdk-s3 = { version = "1.137", optional = true }
+aws-sdk-s3 = {
+    version = "1.137",
+    optional = true,
+    default-features = false,
+    features = ["sigv4a", "http-1x", "default-https-client", "rt-tokio"],
+}
 aws-smithy-types = { version = "1.5", optional = true }
 aws-config = { version = "1.8", optional = true }
 
@@ -43,7 +48,11 @@ tempfile = "3.27"
 tracing = "0.1"
 aws-config = { version = "1.8", features = ["behavior-version-latest"] }
 
-aws-sdk-s3 = "1.137"
+aws-sdk-s3 = {
+    version = "1.137",
+    default-features = false,
+    features = ["sigv4a", "http-1x", "default-https-client", "rt-tokio"],
+}
 s3s = "0.14"
 s3s-fs = "0.14"
 s3s-aws = "0.14"
