@@ -10,6 +10,7 @@ use crate::error::{BatchError, BlobStorageError, KeyError, PerKeyError, Result};
 use crate::fs::{FsBlobStore, system_time_to_utc};
 use crate::list_filter::ListFilter;
 use crate::types::{BlobInput, BlobMeta, KEY_SEPARATOR, PutResult};
+use crate::validate::validate_blob_key;
 use crate::visitor::BlobVisitor;
 
 /// Map a `std::io::Error` to `PerKeyError` for batch error reporting.
@@ -149,6 +150,11 @@ impl BlobStore for FsBlobStore {
 
     #[instrument(skip(self))]
     async fn delete(&self, keys: &[&str]) -> Result<()> {
+        // Validate the entire batch before deleting any files.
+        for key in keys {
+            validate_blob_key(key)?;
+        }
+
         self.ensure_root().await?;
         let mut succeeded = Vec::new();
         let mut errors = Vec::new();
@@ -157,7 +163,7 @@ impl BlobStore for FsBlobStore {
             let path = match self.key_to_path(key) {
                 Ok(p) => p,
                 Err(e) => {
-                    // InvalidInput na klíči — to je fatální pro všechny, abort
+                    // An invalid key aborts the entire batch.
                     return Err(e);
                 }
             };
@@ -167,7 +173,7 @@ impl BlobStore for FsBlobStore {
                     succeeded.push(key.to_string());
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    // NotFound na delete NENÍ chyba — delete je idempotentní
+                    // A missing file is not an error: delete is idempotent.
                     tracing::debug!(key, "Blob already gone (not found) during delete");
                     succeeded.push(key.to_string());
                 }
