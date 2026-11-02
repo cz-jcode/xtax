@@ -57,7 +57,7 @@ impl EncryptionProvider for ShiftEncryption {
 
         // Header: [wrapped_dek, master_key_id=0]
         // For plain ShiftEncryption, master_key_id is always 0
-        Ok(vec![self.shift ^ 0, 0])
+        Ok(vec![self.shift, 0])
     }
 
     async fn decrypt_stream(
@@ -92,7 +92,7 @@ impl EncryptionProvider for ShiftEncryption {
         // Re-wrap with master_key_id=0
         let wrapped_dek = header_bytes.first().copied().unwrap_or(0);
         let dek = wrapped_dek ^ master_key_id;
-        Ok(Some(vec![dek ^ 0, 0]))
+        Ok(Some(vec![dek, 0]))
     }
 }
 

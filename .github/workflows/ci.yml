@@ -15,15 +15,15 @@ jobs:
     name: Checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           components: rustfmt, clippy
 
       - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/
@@ -36,26 +36,26 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Clippy (all features)
-        run: cargo clippy --workspace --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
       - name: Test (all features)
-        run: cargo test --workspace --all-features
+        run: cargo test --workspace --all-features --locked
 
       - name: Test xtax facade (no default features)
-        run: cargo test -p xtax --no-default-features
+        run: cargo test -p xtax --no-default-features --locked
 
   # xtax-encryption checks
   encryption-checks:
     name: xtax-encryption
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
 
       - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/
@@ -65,13 +65,13 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-enc-
 
       - name: Build
-        run: cargo build -p xtax-encryption
+        run: cargo build -p xtax-encryption --locked
 
       - name: Test
-        run: cargo test -p xtax-encryption
+        run: cargo test -p xtax-encryption --locked
 
       - name: Clippy
-        run: cargo clippy -p xtax-encryption -- -D warnings
+        run: cargo clippy -p xtax-encryption --all-targets --locked -- -D warnings
 
   # xtax-blob-storage feature matrix
   blob-storage-features:
@@ -85,13 +85,13 @@ jobs:
           - "--features s3"
           - "--no-default-features --features s3"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
 
       - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/
@@ -101,13 +101,13 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-blob-
 
       - name: Build
-        run: cargo build -p xtax-blob-storage ${{ matrix.features }}
+        run: cargo build -p xtax-blob-storage ${{ matrix.features }} --locked
 
       - name: Test
-        run: cargo test -p xtax-blob-storage ${{ matrix.features }}
+        run: cargo test -p xtax-blob-storage ${{ matrix.features }} --locked
 
       - name: Clippy
-        run: cargo clippy -p xtax-blob-storage ${{ matrix.features }} -- -D warnings
+        run: cargo clippy -p xtax-blob-storage --all-targets ${{ matrix.features }} --locked -- -D warnings
 
   # Documentation build
   docs:
@@ -116,13 +116,13 @@ jobs:
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
 
       - name: Cache cargo registry
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/
@@ -132,10 +132,10 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-docs-
 
       - name: Build docs xtax-encryption
-        run: cargo doc -p xtax-encryption --all-features --no-deps
+        run: cargo doc -p xtax-encryption --all-features --no-deps --locked
 
       - name: Build docs xtax-blob-storage
-        run: cargo doc -p xtax-blob-storage --all-features --no-deps
+        run: cargo doc -p xtax-blob-storage --all-features --no-deps --locked
 
       - name: Build docs xtax
-        run: cargo doc -p xtax --all-features --no-deps
+        run: cargo doc -p xtax --all-features --no-deps --locked
