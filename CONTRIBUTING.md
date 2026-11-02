@@ -73,8 +73,8 @@ in order: `xtax-encryption` → `xtax-blob-storage` → `xtax`.
 3. Commit and push to `main`. Wait for CI to pass.
 4. Create and push a single tag:
    ```bash
-   git tag v0.1.2
-   git push origin v0.1.2
+   git tag v0.1.3
+   git push origin v0.1.3
    ```
 5. `release.yml` will:
    - Extract the version from the tag
