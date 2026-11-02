@@ -94,6 +94,14 @@ pub trait EncryptionProvider: Send + Sync {
 - **`decrypt_stream`**: Reads ciphertext from `input`, decrypts using `header_bytes`, writes plaintext to `output`.
 - **`rekey_header`**: Decrypts the DEK from the old header using the old KEK, re-encrypts with the new KEK. Returns `None` if already using the current key.
 
+After the backend stores the ciphertext, `EncryptedBlobStore::put()` waits up to
+30 seconds for the provider to return its detached header. Configure this with
+`EncryptedBlobStore::with_header_completion_timeout(Duration)`. On timeout, the
+encryption task is cancelled, an encryption error is returned, and deletion of
+the stored data blob is attempted. Streaming remains concurrent through a bounded
+64 KiB pipe. This timeout covers only provider completion after ciphertext storage;
+it does not limit streaming time, backend writes, or rollback I/O.
+
 ### Example: No-op provider
 
 ```rust
