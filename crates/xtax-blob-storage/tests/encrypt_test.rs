@@ -59,6 +59,165 @@ async fn test_encrypted_put_invalid_header_key_preserves_existing_data() {
     );
 }
 
+mod provider_completion {
+    use super::*;
+    use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+    use tokio::sync::Notify;
+    use xtax_blob_storage::EncryptionResult;
+
+    /// Simulates a provider that closes its ciphertext stream before finishing its header.
+    /// The test explicitly allows header completion, so no sleeps are needed.
+    struct ProviderWithDelayedHeader {
+        finish_header: Arc<Notify>,
+    }
+
+    #[async_trait]
+    impl EncryptionProvider for ProviderWithDelayedHeader {
+        async fn encrypt_stream(
+            &self,
+            input: &mut (dyn AsyncRead + Send + Unpin),
+            output: &mut (dyn AsyncWrite + Send + Unpin),
+        ) -> EncryptionResult<Vec<u8>> {
+            let header = ShiftEncryption::new(7)
+                .encrypt_stream(input, output)
+                .await?;
+            output.shutdown().await?;
+            self.finish_header.notified().await;
+            Ok(header)
+        }
+
+        async fn decrypt_stream(
+            &self,
+            input: &mut (dyn AsyncRead + Send + Unpin),
+            output: &mut (dyn AsyncWrite + Send + Unpin),
+            header_bytes: &[u8],
+        ) -> EncryptionResult<()> {
+            ShiftEncryption::new(7)
+                .decrypt_stream(input, output, header_bytes)
+                .await
+        }
+
+        async fn rekey_header(&self, _header_bytes: &[u8]) -> EncryptionResult<Option<Vec<u8>>> {
+            Ok(None)
+        }
+    }
+
+    /// Delegates to a real backend and signals when it has consumed and stored the stream.
+    struct StoreThatSignalsCompletedWrites {
+        inner: Arc<dyn BlobStore>,
+        write_finished: Arc<Notify>,
+    }
+
+    #[async_trait]
+    impl BlobStore for StoreThatSignalsCompletedWrites {
+        async fn put(&self, blobs: Vec<BlobInput>) -> Result<PutResult> {
+            let result = self.inner.put(blobs).await?;
+            self.write_finished.notify_one();
+            Ok(result)
+        }
+
+        async fn get(&self, key: &str) -> Result<Box<dyn AsyncRead + Send + Unpin>> {
+            self.inner.get(key).await
+        }
+
+        async fn delete(&self, keys: &[&str]) -> Result<()> {
+            self.inner.delete(keys).await
+        }
+
+        async fn list(&self, filter: &dyn ListFilter) -> Result<Vec<String>> {
+            self.inner.list(filter).await
+        }
+
+        async fn exists(&self, key: &str) -> Result<bool> {
+            self.inner.exists(key).await
+        }
+    }
+
+    #[tokio::test]
+    async fn encrypted_put_times_out_and_rolls_back_when_header_never_finishes() {
+        let directory = tempfile::tempdir().unwrap();
+        let backend = BlobStoreBuilder::new()
+            .with_fs(directory.path())
+            .build()
+            .await
+            .unwrap();
+        let provider = Arc::new(ProviderWithDelayedHeader {
+            finish_header: Arc::new(Notify::new()),
+        });
+        let store = EncryptedBlobStore::new(backend.clone(), provider)
+            .with_header_completion_timeout(std::time::Duration::from_millis(20));
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            store.put(vec![BlobInput::new(
+                "secret.txt",
+                b"secret data".as_slice(),
+            )]),
+        )
+        .await
+        .expect("put must not wait indefinitely");
+        let error = result.expect_err("the provider never returns its header");
+        assert!(matches!(error, BlobStorageError::Encryption { .. }));
+        assert!(error.to_string().contains("timed out"));
+        assert!(!backend.exists("secret.txt").await.unwrap());
+        assert!(!backend.exists("secret.txt.enc-header").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn encrypted_put_waits_for_the_header_after_the_ciphertext_stream_closes() {
+        let directory = tempfile::tempdir().unwrap();
+        let backend = BlobStoreBuilder::new()
+            .with_fs(directory.path())
+            .build()
+            .await
+            .unwrap();
+        let write_finished = Arc::new(Notify::new());
+        let finish_header = Arc::new(Notify::new());
+        let observed_backend = Arc::new(StoreThatSignalsCompletedWrites {
+            inner: backend.clone(),
+            write_finished: write_finished.clone(),
+        });
+        let provider = Arc::new(ProviderWithDelayedHeader {
+            finish_header: finish_header.clone(),
+        });
+        let store = Arc::new(EncryptedBlobStore::new(observed_backend, provider));
+
+        let store_for_write = store.clone();
+        let blob = BlobInput::new("secret.txt", b"secret data".as_slice());
+        let pending_write = tokio::spawn(async move { store_for_write.put(vec![blob]).await });
+
+        // The data is stored, but the provider is still waiting to finish its header.
+        tokio::time::timeout(std::time::Duration::from_secs(5), write_finished.notified())
+            .await
+            .expect("the backend should finish storing the ciphertext");
+        let returned_before_header_was_ready = pending_write.is_finished();
+
+        // Always release the provider before asserting, including on the failing path.
+        finish_header.notify_one();
+        let result = tokio::time::timeout(std::time::Duration::from_secs(5), pending_write)
+            .await
+            .expect("put should finish once the header is ready")
+            .expect("the write task should not panic");
+
+        assert!(
+            !returned_before_header_was_ready,
+            "put must wait for the provider's header even after the ciphertext stream closes"
+        );
+        result.expect("a provider that closes its output before returning a header is valid");
+        assert!(
+            backend.exists("secret.txt.enc-header").await.unwrap(),
+            "a successful encrypted write must store its detached header"
+        );
+
+        let mut reader = store.get("secret.txt").await.unwrap();
+        let mut plaintext = Vec::new();
+        reader.read_to_end(&mut plaintext).await.unwrap();
+        assert_eq!(
+            plaintext, b"secret data",
+            "the completed blob must be readable"
+        );
+    }
+}
+
 // ============================================================================
 // Macro to generate identical test bodies for each backend
 // ============================================================================

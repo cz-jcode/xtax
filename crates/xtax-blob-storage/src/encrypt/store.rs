@@ -3,6 +3,7 @@ use std::io::Cursor;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, BufReader, ReadBuf};
@@ -82,9 +83,11 @@ pub struct EncryptedBlobStore {
     pub(crate) inner: Arc<dyn BlobStore>,
     pub(crate) encryption: Arc<dyn EncryptionProvider>,
     pub(crate) header_suffix: String,
+    header_completion_timeout: Duration,
 }
 
 impl EncryptedBlobStore {
+    const DEFAULT_HEADER_COMPLETION_TIMEOUT: Duration = Duration::from_secs(30);
     const DEFAULT_HEADER_SUFFIX: &'static str = ".enc-header";
 
     /// Create a new encrypted blob store wrapping the given inner store.
@@ -95,6 +98,7 @@ impl EncryptedBlobStore {
             inner,
             encryption,
             header_suffix: Self::DEFAULT_HEADER_SUFFIX.to_string(),
+            header_completion_timeout: Self::DEFAULT_HEADER_COMPLETION_TIMEOUT,
         }
     }
 
@@ -111,7 +115,17 @@ impl EncryptedBlobStore {
             inner,
             encryption,
             header_suffix: header_suffix.into(),
+            header_completion_timeout: Self::DEFAULT_HEADER_COMPLETION_TIMEOUT,
         }
+    }
+
+    /// Set how long to wait for the provider's header after the backend stores the ciphertext.
+    ///
+    /// Defaults to 30 seconds. This limit does not apply to streaming the blob or backend I/O.
+    /// On expiry, cancels the encryption task and attempts to delete the stored data blob.
+    pub fn with_header_completion_timeout(mut self, timeout: Duration) -> Self {
+        self.header_completion_timeout = timeout;
+        self
     }
 
     pub(crate) fn header_key(&self, key: &str) -> String {
@@ -239,45 +253,58 @@ impl BlobStore for EncryptedBlobStore {
             // Create a 64 KiB pipe: encryption writes to tx, inner store reads from rx
             let (mut tx, rx) = tokio::io::duplex(64 * 1024);
 
-            // Shared slot for the encryption result (header bytes or error)
-            let enc_result: Arc<Mutex<Option<Result<Vec<u8>>>>> = Arc::new(Mutex::new(None));
-            let enc_result_clone = enc_result.clone();
             let enc = self.encryption.clone();
             let enc_key = key.clone();
 
             // Spawn encryption — writes encrypted data to tx
-            tokio::spawn(async move {
-                let result = enc.encrypt_stream(&mut data, &mut tx).await.map_err(|e| {
+            let mut encryption_task = tokio::spawn(async move {
+                enc.encrypt_stream(&mut data, &mut tx).await.map_err(|e| {
                     BlobStorageError::Encryption {
                         message: format!("encryption failed for key '{enc_key}'"),
                         source: Some(Box::new(e)),
                     }
-                });
-                *enc_result_clone.lock().unwrap() = Some(result);
+                })
             });
 
             // Stream encrypted data from rx into the inner store
             let enc_input = BlobInput::with_size(key.clone(), rx, size_hint.unwrap_or(0));
             tracing::debug!(key = %key, "Storing encrypted blob data");
-            let result = self.inner.put(vec![enc_input]).await?;
+            let result = match self.inner.put(vec![enc_input]).await {
+                Ok(result) => result,
+                Err(error) => {
+                    encryption_task.abort();
+                    let _ = encryption_task.await;
+                    return Err(error);
+                }
+            };
 
-            // Wait for encryption task to finish and retrieve the header.
-            // If encryption failed, perform best-effort rollback of the data blob.
-            // (Extract the result into a local to drop the MutexGuard before any await.)
-            let enc_task_result = enc_result.lock().unwrap().take();
-            let header_bytes = match enc_task_result {
-                Some(Ok(bytes)) => bytes,
-                Some(Err(enc_err)) => {
+            // EOF does not guarantee that the provider has returned its header.
+            let encryption_result =
+                match tokio::time::timeout(self.header_completion_timeout, &mut encryption_task)
+                    .await
+                {
+                    Ok(Ok(result)) => result,
+                    Ok(Err(error)) => Err(BlobStorageError::Encryption {
+                        message: format!("encryption task failed for key '{key}'"),
+                        source: Some(Box::new(error)),
+                    }),
+                    Err(error) => {
+                        encryption_task.abort();
+                        Err(BlobStorageError::Encryption {
+                            message: format!(
+                                "timed out waiting for encryption header for key '{key}'"
+                            ),
+                            source: Some(Box::new(error)),
+                        })
+                    }
+                };
+            let header_bytes = match encryption_result {
+                Ok(bytes) => bytes,
+                Err(enc_err) => {
                     tracing::warn!(key = %key, error = %enc_err,
                         "Encryption failed after data blob was stored; attempting rollback");
                     let _ = self.inner.delete(&[&key]).await;
                     return Err(enc_err);
-                }
-                None => {
-                    return Err(BlobStorageError::Encryption {
-                        message: format!("encryption task did not complete for key '{key}'"),
-                        source: None,
-                    });
                 }
             };
 
