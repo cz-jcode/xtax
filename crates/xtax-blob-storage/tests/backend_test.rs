@@ -112,6 +112,59 @@ macro_rules! backend_tests {
                 assert_eq!(buf, b"hello world");
             }
 
+            async fn assert_invalid_put_batch_preserves_blobs(invalid_key_index: usize) {
+                let store = $store_fn().await;
+                store
+                    .put(vec![BlobInput::new(
+                        "existing.txt",
+                        b"original data".as_slice(),
+                    )])
+                    .await
+                    .unwrap();
+
+                let mut batch = vec![
+                    BlobInput::new("existing.txt", b"replacement data".as_slice()),
+                    BlobInput::new("new.txt", b"new data".as_slice()),
+                ];
+                batch.insert(
+                    invalid_key_index,
+                    BlobInput::new("../invalid.txt", b"invalid data".as_slice()),
+                );
+
+                let result = store.put(batch).await;
+
+                assert!(
+                    matches!(result, Err(BlobStorageError::InvalidInput(_))),
+                    "batch with invalid key at index {invalid_key_index} must return InvalidInput"
+                );
+                let mut reader = store.get("existing.txt").await.unwrap();
+                let mut content = Vec::new();
+                reader.read_to_end(&mut content).await.unwrap();
+                assert_eq!(
+                    content, b"original data",
+                    "rejecting the batch must not overwrite an existing blob"
+                );
+                assert!(
+                    !store.exists("new.txt").await.unwrap(),
+                    "rejecting the batch must not create a new blob"
+                );
+            }
+
+            #[tokio::test]
+            async fn test_put_invalid_batch_first_key_preserves_blobs() {
+                assert_invalid_put_batch_preserves_blobs(0).await;
+            }
+
+            #[tokio::test]
+            async fn test_put_invalid_batch_middle_key_preserves_blobs() {
+                assert_invalid_put_batch_preserves_blobs(1).await;
+            }
+
+            #[tokio::test]
+            async fn test_put_invalid_batch_last_key_preserves_blobs() {
+                assert_invalid_put_batch_preserves_blobs(2).await;
+            }
+
             #[tokio::test]
             async fn test_get_not_found() {
                 let store = $store_fn().await;
@@ -204,6 +257,64 @@ macro_rules! backend_tests {
                     Err(BlobStorageError::InvalidInput(_)) => { /* expected */ }
                     other => panic!("expected InvalidInput for path traversal, got: {other:?}"),
                 }
+            }
+
+            async fn assert_invalid_delete_batch_preserves_blobs(invalid_key_index: usize) {
+                let store = $store_fn().await;
+                let blobs = [
+                    ("keep-a.txt", b"original content a".as_slice()),
+                    ("nested/keep-b.txt", b"original content b".as_slice()),
+                ];
+                store
+                    .put(
+                        blobs
+                            .iter()
+                            .map(|&(key, data)| BlobInput::new(key, data))
+                            .collect(),
+                    )
+                    .await
+                    .unwrap();
+
+                let mut keys: Vec<&str> = blobs.iter().map(|&(key, _)| key).collect();
+                keys.insert(invalid_key_index, "../path-traversal.txt");
+
+                assert!(
+                    matches!(
+                        store.delete(&keys).await,
+                        Err(BlobStorageError::InvalidInput(_))
+                    ),
+                    "batch with invalid key at index {invalid_key_index} must return InvalidInput"
+                );
+
+                for (key, expected_data) in blobs {
+                    assert!(
+                        store.exists(key).await.unwrap(),
+                        "blob '{key}' must survive a rejected delete batch \
+                         (invalid key at index {invalid_key_index})"
+                    );
+                    let mut reader = store.get(key).await.unwrap();
+                    let mut actual_data = Vec::new();
+                    reader.read_to_end(&mut actual_data).await.unwrap();
+                    assert_eq!(
+                        actual_data, expected_data,
+                        "rejected delete batch must preserve the contents of '{key}'"
+                    );
+                }
+            }
+
+            #[tokio::test]
+            async fn test_delete_invalid_batch_first_key_preserves_blobs() {
+                assert_invalid_delete_batch_preserves_blobs(0).await;
+            }
+
+            #[tokio::test]
+            async fn test_delete_invalid_batch_middle_key_preserves_blobs() {
+                assert_invalid_delete_batch_preserves_blobs(1).await;
+            }
+
+            #[tokio::test]
+            async fn test_delete_invalid_batch_last_key_preserves_blobs() {
+                assert_invalid_delete_batch_preserves_blobs(2).await;
             }
 
             #[tokio::test]

@@ -15,6 +15,7 @@ use crate::encrypt::visitors::EncryptVisitor;
 use crate::error::{BatchError, BlobStorageError, KeyError, Result};
 use crate::list_filter::{ListFilter, SuffixFilter};
 use crate::types::{BlobInput, BlobMeta, PutResult, RekeyResult};
+use crate::validate::validate_blob_key;
 use crate::visitor::BlobVisitor;
 
 /// Wraps an `AsyncRead` and checks for a stored decryption error on EOF.
@@ -219,10 +220,16 @@ impl BlobStore for EncryptedBlobStore {
     /// documentation for all failure modes and recovery strategies.
     #[instrument(skip(self, blobs))]
     async fn put(&self, blobs: Vec<BlobInput>) -> Result<PutResult> {
+        // Validate all data and header keys before starting encryption or writing blobs.
+        for blob in &blobs {
+            validate_blob_key(&blob.key)?;
+            self.validate_key_no_header_collision(&blob.key)?;
+            validate_blob_key(&self.header_key(&blob.key))?;
+        }
+
         let count = blobs.len();
         let mut metas = Vec::with_capacity(count);
         for blob in blobs {
-            self.validate_key_no_header_collision(&blob.key)?;
             let BlobInput {
                 key,
                 mut data,

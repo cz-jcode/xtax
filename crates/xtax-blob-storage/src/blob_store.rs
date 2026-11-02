@@ -31,6 +31,11 @@ use crate::visitor::BlobVisitor;
 #[async_trait]
 pub trait BlobStore: Send + Sync {
     /// Store one or more blobs.
+    ///
+    /// All keys must be validated before any writes. An invalid key rejects
+    /// the entire batch with `InvalidInput`, preserving existing blobs.
+    /// This does not make the batch transactional: I/O or encryption failures
+    /// during processing may still leave partial writes.
     async fn put(&self, blobs: Vec<BlobInput>) -> Result<PutResult>;
 
     /// Retrieve a blob by key.

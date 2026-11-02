@@ -20,6 +20,45 @@ use xtax_blob_storage::{
 mod common_encrypt;
 use common_encrypt::*;
 
+#[tokio::test]
+async fn test_encrypted_put_invalid_header_key_preserves_existing_data() {
+    let directory = tempfile::tempdir().unwrap();
+    let backend = BlobStoreBuilder::new()
+        .with_fs(directory.path())
+        .build()
+        .await
+        .unwrap();
+    backend
+        .put(vec![BlobInput::new(
+            "secret.txt",
+            b"original data".as_slice(),
+        )])
+        .await
+        .unwrap();
+    // A trailing slash makes the generated header key invalid.
+    let store = EncryptedBlobStore::with_suffix(
+        backend.clone(),
+        Arc::new(ShiftEncryption::new(7)),
+        ".header/",
+    );
+
+    let result = store
+        .put(vec![BlobInput::new(
+            "secret.txt",
+            b"secret data".as_slice(),
+        )])
+        .await;
+
+    assert!(matches!(result, Err(BlobStorageError::InvalidInput(_))));
+    let mut reader = backend.get("secret.txt").await.unwrap();
+    let mut content = Vec::new();
+    reader.read_to_end(&mut content).await.unwrap();
+    assert_eq!(
+        content, b"original data",
+        "an invalid header key must not overwrite or delete the original blob"
+    );
+}
+
 // ============================================================================
 // Macro to generate identical test bodies for each backend
 // ============================================================================
@@ -44,6 +83,51 @@ macro_rules! encrypt_tests {
                 let mut buf = Vec::new();
                 reader.read_to_end(&mut buf).await.unwrap();
                 assert_eq!(buf, data, "round-trip should return original data");
+            }
+
+            async fn assert_invalid_put_batch_preserves_encrypted_blobs(invalid_key: &str) {
+                let store = $store_fn(7u8).await;
+                store
+                    .put(vec![BlobInput::new(
+                        "secret.txt",
+                        b"original secret".as_slice(),
+                    )])
+                    .await
+                    .unwrap();
+
+                let result = store
+                    .put(vec![
+                        BlobInput::new("secret.txt", b"replacement secret".as_slice()),
+                        BlobInput::new("new.txt", b"new secret".as_slice()),
+                        BlobInput::new(invalid_key, b"invalid data".as_slice()),
+                    ])
+                    .await;
+
+                assert!(
+                    matches!(result, Err(BlobStorageError::InvalidInput(_))),
+                    "an invalid key must reject the entire encrypted batch"
+                );
+                let mut reader = store.get("secret.txt").await.unwrap();
+                let mut plaintext = Vec::new();
+                reader.read_to_end(&mut plaintext).await.unwrap();
+                assert_eq!(
+                    plaintext, b"original secret",
+                    "rejecting the batch must preserve the original data and encryption header"
+                );
+                assert!(
+                    !store.exists("new.txt").await.unwrap(),
+                    "rejecting the batch must not create a new encrypted blob"
+                );
+            }
+
+            #[tokio::test]
+            async fn test_encrypted_put_invalid_batch_key_preserves_blobs() {
+                assert_invalid_put_batch_preserves_encrypted_blobs("../invalid.txt").await;
+            }
+
+            #[tokio::test]
+            async fn test_encrypted_put_reserved_header_key_preserves_blobs() {
+                assert_invalid_put_batch_preserves_encrypted_blobs("secret.txt.enc-header").await;
             }
 
             #[tokio::test]
