@@ -43,13 +43,38 @@ The validation is applied to **every** `put`, `get`, `delete`, `exists`, and
 
 ### Key nesting
 
-Keys containing `/` are mapped to nested directories — identical behaviour to S3:
+Keys containing `/` are mapped to nested filesystem directories:
 
 | Key | File path |
 |-----|-----------|
 | `hello.txt` | `{root}/hello.txt` |
 | `a/b/c.txt` | `{root}/a/b/c.txt` |
 | `invoices/2024/report.pdf` | `{root}/invoices/2024/report.pdf` |
+
+### File and directory key collisions
+
+The FS backend cannot store a blob at a path that is already a directory,
+or create nested blobs beneath a path that is already a file. This can
+happen through normal API usage, without any external filesystem changes:
+
+| First successful write | Subsequent write that fails | Reason |
+|------------------------|-----------------------------|--------|
+| `invoices/january.pdf` | `invoices` | `invoices` is already a directory |
+| `invoices` | `invoices/january.pdf` | `invoices` is already a file |
+
+After storing `invoices/january.pdf`, `exists("invoices/january.pdf")`
+returns `true`, while `exists("invoices")` returns `false`: directories
+are not blobs.
+
+Both keys are valid individually. A collision causes `put()` to return
+`BlobStorageError::Storage` with the underlying filesystem I/O error;
+it is not an `InvalidInput` key-validation error. A batch may have already
+written earlier blobs before encountering such a storage error.
+
+S3 allows both keys to coexist because `/` is part of an object key and
+does not create real directories. Applications that need to use both
+backends should avoid storing a blob at a key that is also a parent path
+of another blob.
 
 ### Prefix optimisation (`prefix_subdir`)
 

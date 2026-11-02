@@ -89,6 +89,18 @@ No database. No gRPC. No framework lock-in. Just blobs.
 
 Both features can be enabled at once — switch at runtime via the builder.
 
+## Filesystem key limitations
+
+The FS backend maps keys to real files and directories. Storing
+`invoices/january.pdf` creates an `invoices/` directory, so
+`exists("invoices")` returns `false`: the directory itself is not a blob.
+A subsequent `put()` with the key `invoices` fails with a storage I/O error.
+The reverse order also fails: a file named `invoices` prevents creating
+`invoices/january.pdf` beneath it.
+
+S3 allows both keys to coexist because its object keys do not create real
+directories. See [File and directory key collisions](docs/backends.md#file-and-directory-key-collisions).
+
 ## Documentation
 
 - [**Getting Started**](docs/guide.md) — step-by-step tutorial

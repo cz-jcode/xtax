@@ -250,7 +250,7 @@ impl BlobStore for FsBlobStore {
     async fn exists(&self, key: &str) -> Result<bool> {
         self.ensure_root().await?;
         let path = self.key_to_path(key)?;
-        let exists = path.exists();
+        let exists = path.is_file();
         tracing::debug!(key, exists, "Checked blob existence via FS");
         Ok(exists)
     }

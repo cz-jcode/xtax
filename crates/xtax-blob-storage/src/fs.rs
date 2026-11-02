@@ -20,12 +20,16 @@ fn system_time_to_utc(t: SystemTime) -> DateTime<Utc> {
 ///
 /// Blobs are stored as individual files under a root directory.
 ///
-/// ## Key nesting — identical behaviour to S3
+/// ## Key nesting
 ///
 /// Keys containing `/` are mapped to nested directories. For example,
-/// key `a/b/c.txt` is stored as `{root}/a/b/c.txt`. This is equivalent
-/// to how S3 interprets `/` as a path separator — the FS backend and
-/// the S3 backend are interchangeable in this regard.
+/// key `a/b/c.txt` is stored as `{root}/a/b/c.txt`.
+///
+/// Unlike S3, the filesystem cannot store both `a` and `a/b/c.txt`:
+/// `a` would need to be both a file and a directory. Writing either key
+/// when the other already exists fails with a storage I/O error.
+/// Directories are not blobs, so `exists("a")` returns `false` when
+/// `a` is a directory containing `b/c.txt`.
 ///
 /// ## Root path normalisation
 ///
