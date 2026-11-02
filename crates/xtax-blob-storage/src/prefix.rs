@@ -120,8 +120,11 @@ impl PrefixBlobStore {
         }
     }
 
-    fn prefixed(&self, key: &str) -> String {
-        format!("{}{}", self.prefix, key)
+    fn prefixed(&self, key: &str) -> Result<String> {
+        validate_blob_key(key)?;
+        let prefixed = format!("{}{}", self.prefix, key);
+        validate_blob_key(&prefixed)?;
+        Ok(prefixed)
     }
 
     fn strip_prefix(&self, key: &str) -> Option<String> {
@@ -219,20 +222,16 @@ impl BlobVisitor for PrefixVisitor<'_, '_> {
 impl BlobStore for PrefixBlobStore {
     #[instrument(skip(self, blobs))]
     async fn put(&self, blobs: Vec<BlobInput>) -> Result<PutResult> {
-        // Validate both logical and physical keys before forwarding the batch.
-        for blob in &blobs {
-            validate_blob_key(&blob.key)?;
-            validate_blob_key(&self.prefixed(&blob.key))?;
-        }
-
         let prefixed: Vec<BlobInput> = blobs
             .into_iter()
-            .map(|b| BlobInput {
-                key: self.prefixed(&b.key),
-                data: b.data,
-                size_hint: b.size_hint,
+            .map(|b| {
+                Ok(BlobInput {
+                    key: self.prefixed(&b.key)?,
+                    data: b.data,
+                    size_hint: b.size_hint,
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
         let count = prefixed.len();
         tracing::debug!(prefix = %self.prefix, count, "Storing blobs via prefix layer");
         let mut result = self.inner.put(prefixed).await?;
@@ -247,7 +246,7 @@ impl BlobStore for PrefixBlobStore {
 
     #[instrument(skip(self))]
     async fn get(&self, key: &str) -> Result<Box<dyn AsyncRead + Send + Unpin>> {
-        let prefixed = self.prefixed(key);
+        let prefixed = self.prefixed(key)?;
         tracing::debug!(key, prefixed, "Retrieving blob via prefix layer");
         self.inner
             .get(&prefixed)
@@ -257,7 +256,10 @@ impl BlobStore for PrefixBlobStore {
 
     #[instrument(skip(self))]
     async fn delete(&self, keys: &[&str]) -> Result<()> {
-        let prefixed: Vec<String> = keys.iter().map(|k| self.prefixed(k)).collect();
+        let prefixed: Vec<String> = keys
+            .iter()
+            .map(|k| self.prefixed(k))
+            .collect::<Result<Vec<_>>>()?;
         let refs: Vec<&str> = prefixed.iter().map(|s| s.as_str()).collect();
         tracing::debug!(prefix = %self.prefix, count = %keys.len(), "Deleting blobs via prefix layer");
         self.inner
@@ -276,7 +278,7 @@ impl BlobStore for PrefixBlobStore {
         let stripped: Vec<String> = keys
             .into_iter()
             .filter_map(|k| self.strip_prefix(&k))
-            .filter(|k| filter.matches(k, Some(&BlobMeta::for_key(k))))
+            .filter(|k| filter.matches(k, None))
             .collect();
         tracing::debug!(prefix = %self.prefix, count = %stripped.len(), "Listed blobs via prefix layer");
         Ok(stripped)
@@ -298,7 +300,7 @@ impl BlobStore for PrefixBlobStore {
 
     #[instrument(skip(self))]
     async fn exists(&self, key: &str) -> Result<bool> {
-        let prefixed = self.prefixed(key);
+        let prefixed = self.prefixed(key)?;
         tracing::debug!(key, prefixed, "Checking blob existence via prefix layer");
         self.inner
             .exists(&prefixed)
@@ -311,7 +313,7 @@ impl BlobStore for PrefixBlobStore {
         &self,
         key: &str,
     ) -> Result<(BlobMeta, Box<dyn AsyncRead + Send + Unpin>)> {
-        let prefixed = self.prefixed(key);
+        let prefixed = self.prefixed(key)?;
         tracing::debug!(
             key,
             prefixed,
@@ -338,8 +340,8 @@ impl BlobStore for PrefixBlobStore {
             .into_iter()
             .filter_map(|mut meta| {
                 self.strip_prefix(&meta.key).and_then(|stripped| {
-                    let passes = filter.matches(&stripped, Some(&meta));
                     meta.key = stripped;
+                    let passes = filter.matches(&meta.key, Some(&meta));
                     if passes { Some(meta) } else { None }
                 })
             })
