@@ -102,7 +102,6 @@ the stored data blob is attempted. Streaming remains concurrent through a bounde
 64 KiB pipe. This timeout covers only provider completion after ciphertext storage;
 it does not limit streaming time, backend writes, or rollback I/O.
 
-
 ### Example: No-op provider
 
 ```rust
