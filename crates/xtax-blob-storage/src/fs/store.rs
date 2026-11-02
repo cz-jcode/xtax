@@ -107,6 +107,11 @@ fn prefix_subdir(root: &std::path::Path, filter: &dyn ListFilter) -> Result<std:
 impl BlobStore for FsBlobStore {
     #[instrument(skip(self, blobs))]
     async fn put(&self, blobs: Vec<BlobInput>) -> Result<PutResult> {
+        // Validate the entire batch before writing any files.
+        for blob in &blobs {
+            validate_blob_key(&blob.key)?;
+        }
+
         self.ensure_root().await?;
         let mut metas = Vec::with_capacity(blobs.len());
         for blob in blobs {

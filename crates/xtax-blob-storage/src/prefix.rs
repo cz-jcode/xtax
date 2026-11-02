@@ -8,6 +8,7 @@ use crate::blob_store::BlobStore;
 use crate::error::Result;
 use crate::list_filter::ListFilter;
 use crate::types::{BlobInput, BlobMeta, PutResult};
+use crate::validate::validate_blob_key;
 use crate::visitor::BlobVisitor;
 
 /// Combines the store's own prefix with the caller's filter prefix hint
@@ -218,6 +219,12 @@ impl BlobVisitor for PrefixVisitor<'_, '_> {
 impl BlobStore for PrefixBlobStore {
     #[instrument(skip(self, blobs))]
     async fn put(&self, blobs: Vec<BlobInput>) -> Result<PutResult> {
+        // Validate both logical and physical keys before forwarding the batch.
+        for blob in &blobs {
+            validate_blob_key(&blob.key)?;
+            validate_blob_key(&self.prefixed(&blob.key))?;
+        }
+
         let prefixed: Vec<BlobInput> = blobs
             .into_iter()
             .map(|b| BlobInput {

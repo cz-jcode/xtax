@@ -20,11 +20,15 @@ fn s3_time_to_utc(t: &aws_sdk_s3::primitives::DateTime) -> DateTime<chrono::Utc>
 impl BlobStore for super::S3BlobStore {
     #[instrument(skip(self, blobs))]
     async fn put(&self, blobs: Vec<BlobInput>) -> Result<PutResult> {
+        // Validate the entire batch before reading data or uploading any objects.
+        for blob in &blobs {
+            validate_blob_key(&blob.key)?;
+        }
+
         let count = blobs.len();
         let mut metas = Vec::with_capacity(count);
 
         for blob in blobs {
-            validate_blob_key(&blob.key)?;
             let mut reader = blob.data;
 
             // 1. Allocate a BytesMut container up to the 5 MiB capacity floor.
