@@ -318,6 +318,27 @@ macro_rules! backend_tests {
             }
 
             #[tokio::test]
+            async fn test_parent_directory_is_not_an_existing_blob() {
+                let store = $store_fn().await;
+                store
+                    .put(vec![BlobInput::new(
+                        "invoices/january.pdf",
+                        b"invoice".as_slice(),
+                    )])
+                    .await
+                    .unwrap();
+
+                assert!(
+                    store.exists("invoices/january.pdf").await.unwrap(),
+                    "the stored file must exist"
+                );
+                assert!(
+                    !store.exists("invoices").await.unwrap(),
+                    "a parent directory must not count as a stored blob"
+                );
+            }
+
+            #[tokio::test]
             async fn test_list() {
                 let store = $store_fn().await;
 
@@ -626,6 +647,67 @@ backend_tests!(fs, fs_store);
 
 #[cfg(feature = "s3")]
 backend_tests!(s3, s3_store);
+
+#[tokio::test]
+async fn test_fs_put_cannot_replace_a_directory_with_a_blob() {
+    let store = fs_store().await;
+    store
+        .put(vec![BlobInput::new(
+            "invoices/january.pdf",
+            b"original invoice".as_slice(),
+        )])
+        .await
+        .unwrap();
+
+    let result = store
+        .put(vec![BlobInput::new("invoices", b"replacement".as_slice())])
+        .await;
+
+    assert!(
+        matches!(
+            result,
+            Err(xtax_blob_storage::BlobStorageError::Storage { .. })
+        ),
+        "a valid key that collides with a directory must return a storage error"
+    );
+    assert!(!store.exists("invoices").await.unwrap());
+    let mut reader = store.get("invoices/january.pdf").await.unwrap();
+    let mut content = Vec::new();
+    reader.read_to_end(&mut content).await.unwrap();
+    assert_eq!(content, b"original invoice", "the nested blob must survive");
+}
+
+#[tokio::test]
+async fn test_fs_put_cannot_create_a_nested_blob_beneath_a_file() {
+    let store = fs_store().await;
+    store
+        .put(vec![BlobInput::new(
+            "invoices",
+            b"original data".as_slice(),
+        )])
+        .await
+        .unwrap();
+
+    let result = store
+        .put(vec![BlobInput::new(
+            "invoices/january.pdf",
+            b"new invoice".as_slice(),
+        )])
+        .await;
+
+    assert!(
+        matches!(
+            result,
+            Err(xtax_blob_storage::BlobStorageError::Storage { .. })
+        ),
+        "a valid key beneath an existing file must return a storage error"
+    );
+    assert!(!store.exists("invoices/january.pdf").await.unwrap());
+    let mut reader = store.get("invoices").await.unwrap();
+    let mut content = Vec::new();
+    reader.read_to_end(&mut content).await.unwrap();
+    assert_eq!(content, b"original data", "the existing file must survive");
+}
 
 // ============================================================================
 // Backend-agnostic tests — ListFilter combinator tests
