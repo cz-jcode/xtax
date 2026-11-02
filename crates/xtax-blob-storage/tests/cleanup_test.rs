@@ -14,6 +14,10 @@ use xtax_blob_storage::{
     BlobCleanup, BlobInput, BlobStore, BlobStoreBuilder, CleanupPredicate, SuffixFilter,
 };
 
+#[path = "common/collecting_visitor.rs"]
+mod common_visitor;
+use common_visitor::CollectingVisitor;
+
 // ============================================================================
 // Store factories
 // ============================================================================
@@ -280,6 +284,68 @@ macro_rules! cleanup_tests {
 
                 let remaining = store.list(&SuffixFilter::new("")).await.unwrap();
                 assert_eq!(remaining, vec!["small.txt"]);
+            }
+
+            #[tokio::test]
+            async fn test_visiting_through_cleanup_preserves_blob_metadata() {
+                let backend = $store_fn().await;
+                backend
+                    .put(vec![BlobInput::new(
+                        "invoice.pdf",
+                        b"invoice data".as_slice(),
+                    )])
+                    .await
+                    .unwrap();
+                let expected_metadata = backend
+                    .list_with_metadata(&SuffixFilter::new(""))
+                    .await
+                    .unwrap();
+
+                let cleanup = BlobCleanup::new(backend, Box::new(|_, _| false));
+                let mut visitor = CollectingVisitor::new();
+                cleanup
+                    .visit(&SuffixFilter::new(""), &mut visitor)
+                    .await
+                    .unwrap();
+
+                assert_eq!(visitor.keys, vec!["invoice.pdf"]);
+                assert_eq!(
+                    visitor.metas.len(),
+                    1,
+                    "adding a cleanup layer must not discard the backend's visit metadata"
+                );
+                let actual = &visitor.metas[0];
+                let expected = &expected_metadata[0];
+                assert_eq!(actual.key, expected.key);
+                assert_eq!(actual.stored_size, expected.stored_size);
+                assert_eq!(actual.modified_at, expected.modified_at);
+                assert_eq!(actual.etag, expected.etag);
+            }
+
+            #[tokio::test]
+            async fn test_size_based_cleanup_works_through_another_cleanup_layer() {
+                let backend = $store_fn().await;
+                backend
+                    .put(vec![
+                        BlobInput::new("small.txt", b"small".as_slice()),
+                        BlobInput::new("large.txt", std::io::Cursor::new(vec![b'x'; 100])),
+                    ])
+                    .await
+                    .unwrap();
+
+                // The inner cleanup keeps everything; the outer cleanup deletes large blobs.
+                let inner_cleanup = Arc::new(BlobCleanup::new(backend, Box::new(|_, _| false)));
+                let outer_cleanup =
+                    BlobCleanup::new(inner_cleanup, Box::new(|_, meta| meta.stored_size > 50));
+
+                let result = outer_cleanup.cleanup().await.unwrap();
+
+                assert_eq!(
+                    result.deleted_count, 1,
+                    "the outer cleanup must receive the real size and delete large.txt"
+                );
+                let remaining = outer_cleanup.list(&SuffixFilter::new("")).await.unwrap();
+                assert_eq!(remaining, vec!["small.txt"], "the small blob must survive");
             }
 
             #[tokio::test]

@@ -9,6 +9,7 @@ use crate::cleanup::visitor::CleanupVisitor;
 use crate::error::Result;
 use crate::list_filter::{ListFilter, PrefixFilter};
 use crate::types::{BlobInput, BlobMeta, CleanupResult, PutResult};
+use crate::visitor::BlobVisitor;
 
 pub(crate) mod visitor;
 
@@ -147,6 +148,11 @@ impl BlobStore for BlobCleanup {
     #[instrument(skip(self, filter))]
     async fn list(&self, filter: &dyn ListFilter) -> Result<Vec<String>> {
         self.inner.list(filter).await
+    }
+
+    #[instrument(skip(self, filter, visitor))]
+    async fn visit(&self, filter: &dyn ListFilter, visitor: &mut dyn BlobVisitor) -> Result<()> {
+        self.inner.visit(filter, visitor).await
     }
 
     #[instrument(skip(self))]
