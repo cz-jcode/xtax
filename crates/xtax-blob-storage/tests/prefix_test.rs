@@ -37,7 +37,7 @@ mod metadata_filters {
         store
             .put(vec![BlobInput::new(
                 "invoice.pdf",
-                std::io::Cursor::new(vec![b'x'; 128]),
+                std::io::Cursor::new(b"x".repeat(128)),
             )])
             .await
             .unwrap();
