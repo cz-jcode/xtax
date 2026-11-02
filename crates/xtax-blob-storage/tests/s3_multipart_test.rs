@@ -231,7 +231,7 @@ mod s3_tests {
         // Blob = 5 MiB → should use PutObject (since 5 MiB < 5 MiB? No, 5 MiB == 5 MiB)
         // Actually, with part_size = 1 MiB, MIN_MULTIPART_PART_SIZE = 5 MiB
         // So part_size is clamped to 5 MiB. Same as default.
-        let store = s3_store_with_part_size(1 * 1024 * 1024).await;
+        let store = s3_store_with_part_size(1024 * 1024).await;
         let size = 5 * 1024 * 1024; // 5 MiB
         let data = blob_of_size(size);
         let result = store
@@ -412,7 +412,7 @@ mod s3_tests {
         let store = s3_store().await;
 
         let small = vec![b's'; 100]; // 100 bytes — small
-        let medium = blob_of_size(1 * 1024 * 1024); // 1 MiB — small
+        let medium = blob_of_size(1024 * 1024); // 1 MiB — small
         let large = blob_of_size(10 * 1024 * 1024); // 10 MiB — large
 
         let result = store
