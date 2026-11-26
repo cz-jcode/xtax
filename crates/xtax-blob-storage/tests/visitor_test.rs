@@ -12,6 +12,10 @@
 
 #![cfg(feature = "fs")]
 
+#[cfg(feature = "opendal")]
+#[path = "common/opendal.rs"]
+mod common_opendal;
+
 use std::sync::Arc;
 
 use xtax_blob_storage::{BlobInput, BlobStore, BlobStoreBuilder, SuffixFilter};
@@ -308,6 +312,15 @@ visit_tests!(fs, fs_store);
 
 #[cfg(feature = "s3")]
 visit_tests!(s3, s3_store);
+
+#[cfg(feature = "opendal")]
+visit_tests!(opendal_memory, common_opendal::memory_store);
+
+#[cfg(feature = "opendal")]
+visit_tests!(opendal_filesystem, common_opendal::filesystem_store);
+
+#[cfg(feature = "opendal")]
+visit_tests!(opendal_s3, common_opendal::s3_store);
 
 // ============================================================================
 // Layer-specific tests — PrefixBlobStore

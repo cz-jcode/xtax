@@ -114,6 +114,11 @@ pub mod fs;
 #[cfg_attr(docsrs, doc(cfg(feature = "s3")))]
 pub mod s3;
 
+/// Blob store backed by a caller-configured OpenDAL operator.
+#[cfg(feature = "opendal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "opendal")))]
+pub mod opendal;
+
 // ---------------------------------------------------------------------------
 // Re-exports — the public API surface
 // ---------------------------------------------------------------------------

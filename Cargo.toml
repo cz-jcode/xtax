@@ -25,7 +25,8 @@ default = []
 
 blob-storage = ["dep:xtax-blob-storage", "xtax-blob-storage/fs"]
 blob-storage-s3 = ["dep:xtax-blob-storage", "xtax-blob-storage/s3"]
-blob-storage-full = ["blob-storage", "blob-storage-s3"]
+blob-storage-opendal = ["dep:xtax-blob-storage", "xtax-blob-storage/opendal"]
+blob-storage-full = ["blob-storage", "blob-storage-s3", "blob-storage-opendal"]
 encryption = ["dep:xtax-encryption"]
 full = ["blob-storage-full", "encryption"]
 

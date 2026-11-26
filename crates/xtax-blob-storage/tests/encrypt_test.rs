@@ -7,6 +7,10 @@
 
 #![cfg(feature = "fs")]
 
+#[cfg(feature = "opendal")]
+#[path = "common/opendal.rs"]
+mod common_opendal;
+
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -565,6 +569,40 @@ encrypt_tests!(fs, encrypted_fs_store);
 #[cfg(feature = "s3")]
 encrypt_tests!(s3, encrypted_s3_store);
 
+#[cfg(feature = "opendal")]
+async fn encrypted_opendal_memory_store(shift: u8) -> Arc<dyn BlobStore> {
+    encrypted_opendal_store(common_opendal::memory_operator(), shift).await
+}
+
+#[cfg(feature = "opendal")]
+encrypt_tests!(opendal_memory, encrypted_opendal_memory_store);
+
+#[cfg(feature = "opendal")]
+async fn encrypted_opendal_filesystem_store(shift: u8) -> Arc<dyn BlobStore> {
+    encrypted_opendal_store(common_opendal::filesystem_operator(), shift).await
+}
+
+#[cfg(feature = "opendal")]
+encrypt_tests!(opendal_filesystem, encrypted_opendal_filesystem_store);
+
+#[cfg(feature = "opendal")]
+async fn encrypted_opendal_s3_store(shift: u8) -> Arc<dyn BlobStore> {
+    encrypted_opendal_store(common_opendal::s3_operator(), shift).await
+}
+
+#[cfg(feature = "opendal")]
+encrypt_tests!(opendal_s3, encrypted_opendal_s3_store);
+
+#[cfg(feature = "opendal")]
+async fn encrypted_opendal_store(operator: opendal::Operator, shift: u8) -> Arc<dyn BlobStore> {
+    BlobStoreBuilder::new()
+        .with_opendal(operator)
+        .with_encryption(Arc::new(ShiftEncryption::new(shift)))
+        .build()
+        .await
+        .unwrap()
+}
+
 // ============================================================================
 // Rekey integration tests — uses RekeyableShiftEncryption
 // ============================================================================
@@ -627,6 +665,22 @@ async fn test_rekey_then_get_returns_correct_data() {
         .await
         .unwrap();
 
+    assert_rekey_then_get_returns_correct_data(inner).await;
+}
+
+#[cfg(feature = "opendal")]
+#[tokio::test]
+async fn test_rekey_then_get_returns_correct_data_on_opendal() {
+    for store in [
+        common_opendal::memory_store().await,
+        common_opendal::filesystem_store().await,
+        common_opendal::s3_store().await,
+    ] {
+        assert_rekey_then_get_returns_correct_data(store).await;
+    }
+}
+
+async fn assert_rekey_then_get_returns_correct_data(inner: Arc<dyn BlobStore>) {
     // Put data with key_id=1
     let provider1: Arc<dyn EncryptionProvider> = Arc::new(RekeyableShiftEncryption::new(7u8, 1u8));
     let store1 = EncryptedBlobStore::new(inner.clone(), provider1);

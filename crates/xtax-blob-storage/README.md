@@ -46,6 +46,7 @@ as a small experimental crate for similar applications.
 |---------|-------------------|--------|
 | **Unified trait** | `get()`, `put()`, `delete()`, `list()`, `exists()` — one API | Stable |
 | **FS backend** | Blobs as files under a root directory | Stable |
+| **OpenDAL backend** | Caller-selected OpenDAL service | Needs `features = ["opendal"]` |
 | **S3 backend** | AWS S3, Garage, MinIO — any S3 API | Needs `features = ["s3"]` |
 | **Prefix layer** | Transparent key prefixing | Stable |
 | **Encryption layer** | Envelope encryption with detached headers | **Experimental** — streaming with in-memory headers |
@@ -86,8 +87,9 @@ No database. No gRPC. No framework lock-in. Just blobs.
 |---------|-------------|-----------------------|
 | `fs` (default) | `tokio/fs` | Local filesystem |
 | `s3` (opt-in) | `aws-sdk-s3`, `aws-config` | S3-compatible storage |
+| `opendal` (opt-in) | OpenDAL with default features disabled | [Caller-selected storage service](docs/backends.md#opendal-backend) |
 
-Both features can be enabled at once — switch at runtime via the builder.
+Backend features can be combined and selected at runtime via the builder.
 
 ## Filesystem key limitations
 
@@ -106,7 +108,7 @@ directories. See [File and directory key collisions](docs/backends.md#file-and-d
 - [**Getting Started**](docs/guide.md) — step-by-step tutorial
 - [**Architecture**](docs/architecture.md) — how layers compose
 - [**Builder reference**](docs/builder.md) — all builder methods with state constraints
-- [**Backends**](docs/backends.md) — FS and S3 in detail
+- [**Backends**](docs/backends.md) — FS, S3, and OpenDAL in detail
 - [**Encryption**](docs/encryption.md) — envelope encryption and online key rotation
 - [**Cleanup**](docs/cleanup.md) — lifecycle management and visitor pattern
 - [**Filters**](docs/filters.md) — all built-in filters and custom filter API

@@ -77,6 +77,7 @@ Both paths are valid and supported.
 | `encryption`        | Re-exports `xtax-encryption` |
 | `blob-storage`      | Enables filesystem backend via `xtax-blob-storage` |
 | `blob-storage-s3`   | Enables S3 backend via `xtax-blob-storage` |
+| `blob-storage-opendal` | Enables the OpenDAL adapter with caller-selected services |
 | `blob-storage-full` | Enables all blob-storage backends exposed by the facade |
 | `full`              | Enables all currently exposed facade features, including `encryption` |
 

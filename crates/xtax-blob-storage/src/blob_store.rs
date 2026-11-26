@@ -18,6 +18,7 @@ use crate::visitor::BlobVisitor;
 /// |------|-------------|
 /// | [`FsBlobStore`](crate::fs::FsBlobStore) | Filesystem backend (feature `fs`) |
 /// | [`S3BlobStore`](crate::s3::S3BlobStore) | S3-compatible backend (feature `s3`) |
+/// | `opendal::OpenDalBlobStore` | OpenDAL backend (feature `opendal`) |
 /// | `PrefixBlobStore` | Transparent key prefixing (via builder) |
 /// | [`EncryptedBlobStore`](crate::encrypt::store::EncryptedBlobStore) | Envelope encryption |
 /// | [`BlobCleanup`](crate::cleanup::BlobCleanup) | Lifecycle cleanup |
