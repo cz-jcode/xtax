@@ -1,6 +1,7 @@
 # xTax
 
 [![CI](https://github.com/cz-jcode/xtax/actions/workflows/ci.yml/badge.svg)](https://github.com/cz-jcode/xtax/actions/workflows/ci.yml)
+[![Dependency licenses](https://github.com/cz-jcode/xtax/actions/workflows/dependency-licenses.yml/badge.svg)](https://github.com/cz-jcode/xtax/actions/workflows/dependency-licenses.yml)
 [![CodeQL](https://github.com/cz-jcode/xtax/actions/workflows/codeql.yml/badge.svg)](https://github.com/cz-jcode/xtax/actions/workflows/codeql.yml)
 [![Dependabot](https://img.shields.io/badge/dependabot-active-blue?logo=dependabot)](https://github.com/cz-jcode/xtax/network/updates)
 [![crates.io](https://img.shields.io/crates/v/xtax.svg)](https://crates.io/crates/xtax)
