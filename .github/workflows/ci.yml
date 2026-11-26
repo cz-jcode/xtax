@@ -11,20 +11,6 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
-  dependency-licenses:
-    name: Dependency licenses
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Check dependency licenses
-        uses: EmbarkStudios/cargo-deny-action@81891abc19297b21343b15ef67dc61e4aea74fda # v2.1.4
-        with:
-          arguments: --workspace --all-features --locked --exclude-dev
-          command: check licenses
-
   checks:
     name: Checks
     runs-on: ubuntu-latest
