@@ -14,4 +14,4 @@
 
 ## Status
 
-**v0.1.3 — Experimental / learning project.** Not production-ready.
+**v0.1.4 — Experimental / learning project.** Not production-ready.
