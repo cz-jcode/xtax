@@ -11,10 +11,16 @@
 
 #[cfg(feature = "s3")]
 use std::sync::Arc;
-#[cfg(feature = "s3")]
+#[cfg(any(feature = "s3", feature = "opendal"))]
 use tokio::io::AsyncReadExt;
+#[cfg(any(feature = "s3", feature = "opendal"))]
+use xtax_blob_storage::BlobInput;
 #[cfg(feature = "s3")]
-use xtax_blob_storage::{BlobInput, BlobStore, BlobStoreBuilder};
+use xtax_blob_storage::{BlobStore, BlobStoreBuilder};
+
+#[cfg(feature = "opendal")]
+#[path = "common/opendal.rs"]
+mod common_opendal;
 
 // ============================================================================
 // S3 test store factory
@@ -701,4 +707,26 @@ mod s3_tests {
         assert_eq!(buf[0], 0);
         assert_eq!(buf[size - 1], ((size - 1) % 256) as u8);
     }
+}
+
+#[cfg(feature = "opendal")]
+#[tokio::test]
+async fn opendal_s3_multipart_round_trip() {
+    let store = common_opendal::s3_store().await;
+    let payload = vec![42; 9 * 1024 * 1024];
+    store
+        .put(vec![
+            BlobInput::new("multipart", std::io::Cursor::new(payload.clone())),
+            BlobInput::new("empty", tokio::io::empty()),
+        ])
+        .await
+        .unwrap();
+
+    let (meta, mut reader) = store.get_with_metadata("multipart").await.unwrap();
+    assert_eq!(meta.stored_size, payload.len() as u64);
+    let mut body = Vec::new();
+    reader.read_to_end(&mut body).await.unwrap();
+    assert_eq!(body, payload);
+    let mut empty = store.get("empty").await.unwrap();
+    assert_eq!(empty.read_to_end(&mut Vec::new()).await.unwrap(), 0);
 }

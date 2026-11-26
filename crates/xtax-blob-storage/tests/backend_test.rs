@@ -1,5 +1,9 @@
 #![cfg(feature = "fs")]
 
+#[cfg(feature = "opendal")]
+#[path = "common/opendal.rs"]
+mod common_opendal;
+
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
 use xtax_blob_storage::{
@@ -576,13 +580,8 @@ macro_rules! backend_tests {
             /// correctly scopes the inner store to only that subdirectory.
             #[tokio::test]
             async fn test_prefix_blob_store_dir_prefix() {
-                let dir = tempfile::tempdir().unwrap();
-                let path = dir.path().to_path_buf();
-                let _ = dir.keep();
-
-                // Create a store with prefix "my-app/"
                 let prefixed = BlobStoreBuilder::new()
-                    .with_fs(&path)
+                    .with_backend($store_fn().await)
                     .with_prefix("my-app/")
                     .build()
                     .await
@@ -608,13 +607,8 @@ macro_rules! backend_tests {
             /// correctly walks the parent directory and filters by `starts_with`.
             #[tokio::test]
             async fn test_prefix_blob_store_file_prefix() {
-                let dir = tempfile::tempdir().unwrap();
-                let path = dir.path().to_path_buf();
-                let _ = dir.keep();
-
-                // Create a store with prefix "my-app/"
                 let prefixed = BlobStoreBuilder::new()
-                    .with_fs(&path)
+                    .with_backend($store_fn().await)
                     .with_prefix("my-app/")
                     .build()
                     .await
@@ -647,6 +641,59 @@ backend_tests!(fs, fs_store);
 
 #[cfg(feature = "s3")]
 backend_tests!(s3, s3_store);
+
+#[cfg(feature = "opendal")]
+backend_tests!(opendal_memory, common_opendal::memory_store);
+
+#[cfg(feature = "opendal")]
+backend_tests!(opendal_filesystem, common_opendal::filesystem_store);
+
+#[cfg(feature = "opendal")]
+backend_tests!(opendal_s3, common_opendal::s3_store);
+
+#[cfg(feature = "opendal")]
+mod opendal_regressions {
+    use super::*;
+    use xtax_blob_storage::BlobStorageError;
+
+    #[tokio::test]
+    async fn read_is_not_limited_by_stale_metadata() {
+        for operator in [
+            common_opendal::memory_operator(),
+            common_opendal::filesystem_operator(),
+            common_opendal::s3_operator(),
+        ] {
+            let store = BlobStoreBuilder::new()
+                .with_opendal(operator.clone())
+                .build()
+                .await
+                .unwrap();
+            operator.write("header", "old").await.unwrap();
+            let (meta, mut reader) = store.get_with_metadata("header").await.unwrap();
+            operator.write("header", "longer header").await.unwrap();
+
+            let mut body = String::new();
+            reader.read_to_string(&mut body).await.unwrap();
+            assert_eq!(meta.stored_size, 3);
+            assert_eq!(body, "longer header");
+        }
+    }
+
+    #[tokio::test]
+    async fn whitespace_key_cannot_alias_another_blob() {
+        let store = common_opendal::memory_store().await;
+        assert!(matches!(
+            store
+                .put(vec![
+                    BlobInput::new("valid", &b"original"[..]),
+                    BlobInput::new("valid ", &b"alias"[..]),
+                ])
+                .await,
+            Err(BlobStorageError::InvalidInput(_))
+        ));
+        assert!(!store.exists("valid").await.unwrap());
+    }
+}
 
 #[tokio::test]
 async fn test_fs_put_cannot_replace_a_directory_with_a_blob() {

@@ -360,6 +360,15 @@ impl BlobStoreBuilder<NoBackend> {
         }
     }
 
+    /// Use a caller-configured OpenDAL operator as the backend.
+    ///
+    /// Enable the service and any required transport via features on your
+    /// application's OpenDAL dependency.
+    #[cfg(feature = "opendal")]
+    pub fn with_opendal(self, operator: opendal::Operator) -> BlobStoreBuilder<CustomChosen> {
+        self.with_backend(Arc::new(crate::opendal::OpenDalBlobStore::new(operator)))
+    }
+
     /// Use a custom user-supplied backend.
     ///
     /// Any type that implements [`BlobStore`] can be used, enabling

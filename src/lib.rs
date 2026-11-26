@@ -65,6 +65,7 @@
 //! |---------------------|-------------------------|--------------------------------------------------|
 //! | `blob-storage`      | `xtax-blob-storage`     | Blob storage with filesystem backend             |
 //! | `blob-storage-s3`   | `xtax-blob-storage`     | Blob storage with S3 backend enabled             |
+//! | `blob-storage-opendal` | `xtax-blob-storage`  | Blob storage with OpenDAL backend enabled        |
 //! | `blob-storage-full` | `xtax-blob-storage`     | Enables all blob-storage backends exposed here   |
 //! | `encryption`        | `xtax-encryption`       | Trait-only encryption provider interface         |
 //! | `full`              | all facade features     | Enables all currently exposed facade features    |
@@ -86,6 +87,7 @@
 #[cfg(any(
     feature = "blob-storage",
     feature = "blob-storage-s3",
+    feature = "blob-storage-opendal",
     feature = "blob-storage-full"
 ))]
 pub use xtax_blob_storage as blob_storage;
@@ -97,6 +99,7 @@ pub use xtax_encryption as encryption;
 #[cfg(any(
     feature = "blob-storage",
     feature = "blob-storage-s3",
+    feature = "blob-storage-opendal",
     feature = "blob-storage-full",
     feature = "encryption"
 ))]
@@ -104,6 +107,7 @@ pub mod prelude {
     #[cfg(any(
         feature = "blob-storage",
         feature = "blob-storage-s3",
+        feature = "blob-storage-opendal",
         feature = "blob-storage-full"
     ))]
     pub use xtax_blob_storage::*;
@@ -113,6 +117,7 @@ pub mod prelude {
         any(
             feature = "blob-storage",
             feature = "blob-storage-s3",
+            feature = "blob-storage-opendal",
             feature = "blob-storage-full"
         ),
         allow(unused_imports)

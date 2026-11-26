@@ -183,6 +183,44 @@ xtax-blob-storage = { version = "0.1", default-features = false, features = ["s3
 
 ---
 
+## OpenDAL backend
+
+Enable `opendal` on `xtax-blob-storage` and choose the required service
+features on your application's OpenDAL dependency. This example uses the S3
+service with the Reqwest HTTP transport.
+
+```toml
+[dependencies]
+xtax-blob-storage = { version = "0.1", default-features = false, features = ["opendal"] }
+opendal = { version = "0.59.5", default-features = false, features = ["services-s3", "http-transport-reqwest"] }
+```
+
+```rust
+use opendal::{Operator, services::S3};
+use xtax_blob_storage::BlobStoreBuilder;
+
+opendal::install_default(); // Install the enabled HTTP transport.
+let operator = Operator::new(S3::default().bucket("my-bucket").region("eu-central-1"))?;
+
+let store = BlobStoreBuilder::new()
+    .with_opendal(operator)
+    .with_prefix("tenant/")
+    .build()
+    .await?;
+```
+
+For a filesystem operator, enable `services-fs` and omit the HTTP transport.
+The operator selects the storage root and service configuration. The builder
+applies prefixing, encryption, cleanup, and custom layers in the usual order.
+
+The adapter streams reads and uses chunked uploads when the service supports
+multipart writes. Services that accept a single write require the full blob to
+be buffered. Listing and visits use the metadata returned by the service. If
+the service omits the modification time, the adapter uses the current time.
+Keys with leading or trailing whitespace are rejected because OpenDAL trims paths.
+
+---
+
 ## Custom backend
 
 Any type that implements `BlobStore` can be used as a backend:

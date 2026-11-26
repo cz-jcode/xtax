@@ -7,6 +7,10 @@
 
 #![cfg(feature = "fs")]
 
+#[cfg(feature = "opendal")]
+#[path = "common/opendal.rs"]
+mod common_opendal;
+
 use std::sync::Arc;
 
 use tokio::io::AsyncReadExt;
@@ -296,6 +300,7 @@ macro_rules! cleanup_tests {
                     )])
                     .await
                     .unwrap();
+                let list_started = chrono::Utc::now();
                 let expected_metadata = backend
                     .list_with_metadata(&SuffixFilter::new(""))
                     .await
@@ -303,6 +308,7 @@ macro_rules! cleanup_tests {
 
                 let cleanup = BlobCleanup::new(backend, Box::new(|_, _| false));
                 let mut visitor = CollectingVisitor::new();
+                let visit_started = chrono::Utc::now();
                 cleanup
                     .visit(&SuffixFilter::new(""), &mut visitor)
                     .await
@@ -318,7 +324,13 @@ macro_rules! cleanup_tests {
                 let expected = &expected_metadata[0];
                 assert_eq!(actual.key, expected.key);
                 assert_eq!(actual.stored_size, expected.stored_size);
-                assert_eq!(actual.modified_at, expected.modified_at);
+                // A backend without a stored timestamp may use the time of each observation.
+                assert!(
+                    actual.modified_at == expected.modified_at
+                        || ((list_started..=visit_started).contains(&expected.modified_at)
+                            && (visit_started..=chrono::Utc::now()).contains(&actual.modified_at)),
+                    "visit must preserve the stored timestamp or provide a current fallback"
+                );
                 assert_eq!(actual.etag, expected.etag);
             }
 
@@ -396,6 +408,15 @@ cleanup_tests!(fs, fs_store);
 
 #[cfg(feature = "s3")]
 cleanup_tests!(s3, s3_store);
+
+#[cfg(feature = "opendal")]
+cleanup_tests!(opendal_memory, common_opendal::memory_store);
+
+#[cfg(feature = "opendal")]
+cleanup_tests!(opendal_filesystem, common_opendal::filesystem_store);
+
+#[cfg(feature = "opendal")]
+cleanup_tests!(opendal_s3, common_opendal::s3_store);
 
 // ============================================================================
 // Layer-specific tests — BlobCleanup wrapping PrefixBlobStore
